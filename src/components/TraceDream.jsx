@@ -217,24 +217,35 @@ export default function TraceDream() {
     function buildHeroChars() {
       const firstAnchor = state.anchors[0];
       if (!firstAnchor) return [];
-      const text = "DREAM";
+      const phrase = "A DREAM";
       ctx.save();
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
 
-      const phrase = `A ${text}`;
-      const phraseWidth = ctx.measureText(phrase).width;
-      let cursorX = state.width * 0.5 - phraseWidth * 0.5;
+      let cursorX = 0;
       const chars = [];
       Array.from(phrase).forEach((char) => {
-        const width = ctx.measureText(char).width;
-        if (char !== " ") chars.push(createStamp(cursorX + width * 0.5, firstAnchor.y, char, true));
-        cursorX += width;
+        const advance = char === " " ? state.fontSize * 0.42 : ctx.measureText(char).width;
+        if (char !== " ") {
+          const glyph = getGlyphCanvas(char, true);
+          chars.push({
+            ...createStamp(cursorX + advance * 0.5, firstAnchor.y, char, true),
+            visualWidth: glyph.width + state.warpAmount * 2,
+          });
+        }
+        cursorX += advance + state.fontSize * 0.015;
       });
 
       ctx.restore();
-      return chars;
+      if (!chars.length) return chars;
+      const minX = Math.min(...chars.map((stamp) => stamp.x - stamp.visualWidth * 0.5));
+      const maxX = Math.max(...chars.map((stamp) => stamp.x + stamp.visualWidth * 0.5));
+      const shift = state.width * 0.5 - (minX + maxX) * 0.5;
+      return chars.map(({ visualWidth, ...stamp }) => ({
+        ...stamp,
+        x: stamp.x + shift,
+      }));
     }
 
     function getTopGhostOffsets() {
@@ -448,7 +459,6 @@ export default function TraceDream() {
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
-        for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
         state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets));
         return;
       }

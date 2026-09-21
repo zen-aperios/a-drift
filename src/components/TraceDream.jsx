@@ -78,6 +78,7 @@ export default function TraceDream() {
       heroDismiss: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
+    const depthPushEase = gsap.parseEase("power3.out");
 
     const lettersInput = q("#lettersInput");
     const fontSizeRange = q("#fontSizeRange");
@@ -406,6 +407,7 @@ export default function TraceDream() {
       ctx.save();
       ctx.translate(stamp.x, stamp.y - state.scrollY + state.height * 0.18);
       if (state.rotateEnabled) ctx.rotate(stamp.rotation);
+      if (options.scale !== undefined) ctx.scale(options.scale, options.scale);
       ctx.translate(-width * 0.5, -height * 0.5);
       ctx.globalAlpha = opacity;
 
@@ -432,6 +434,7 @@ export default function TraceDream() {
       ctx.save();
       ctx.translate(stamp.x, screenY);
       if (state.rotateEnabled) ctx.rotate(stamp.rotation);
+      if (options.scale !== undefined) ctx.scale(options.scale, options.scale);
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -453,7 +456,10 @@ export default function TraceDream() {
     }
 
     function drawAnimatedGhostStack(stamp, offsets, opacityMultiplier = 1, yLift = 0) {
-      const phase = (performance.now() * 0.00042 + stamp.x * 0.0002) % 1;
+      const phase = (performance.now() * 0.00018 + stamp.x * 0.0002) % 1;
+      const pushProgress = phase < 0.5 ? depthPushEase(1 - phase / 0.5) : 0;
+      const pushScale = 1 + pushProgress * 0.075;
+      const pushOpacity = opacityMultiplier * (0.78 + pushProgress * 0.22);
       for (let i = 5; i >= 1; i -= 1) {
         const slot = 5 - i;
         const age = slot + phase;
@@ -468,7 +474,10 @@ export default function TraceDream() {
         );
       }
 
-      drawStamp({ ...stamp, y: stamp.y - yLift }, true, 0, 1, { opacity: opacityMultiplier });
+      drawStamp({ ...stamp, y: stamp.y - yLift }, true, 0, 1, {
+        opacity: pushOpacity,
+        scale: pushScale,
+      });
     }
 
     function render() {

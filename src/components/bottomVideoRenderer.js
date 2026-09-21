@@ -1,5 +1,7 @@
 import { clamp } from "./traceMath.js";
 
+// Owns bottom-video reveal/playback output. Animation state and scroll geometry
+// stay in TraceDream so the video keeps the existing timing contract.
 export function createBottomVideoRenderer({
   ctx,
   state,
@@ -38,6 +40,18 @@ export function createBottomVideoRenderer({
     if (!item) return false;
 
     const rawScreenY = getBottomVideoBaseScreenY();
+    // Firefox uses the DOM fallback; avoid touching its media element when it
+    // is far away while leaving the shader path unchanged in other browsers.
+    const isFarOffscreen = rawScreenY < -state.height * 1.5 || rawScreenY > state.height * 2.5;
+    if (useDomPortalImages && isFarOffscreen) {
+      setPortalReveal(item, 0);
+      if (item.domStyle.display !== "none") {
+        item.domStyle.display = "none";
+        item.video.style.display = "none";
+      }
+      if (item.mesh) item.mesh.visible = false;
+      return false;
+    }
     const revealStartY = state.height * (state.portalRevealStart / 100);
     const revealDistance = state.height * (state.portalRevealDistance / 100);
     const revealTarget = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);

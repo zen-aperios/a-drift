@@ -14,6 +14,10 @@ import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
 import { createDiagonalGhostRenderer } from "./diagonalGhostRenderer.js";
 import { createBottomVideoRenderer } from "./bottomVideoRenderer.js";
 import { createPortalRenderer } from "./portalRenderer.js";
+import { createMainTraceRenderer } from "./mainTraceRenderer.js";
+import { createTraceControls } from "./traceControls.js";
+import { createPortalInteractionController } from "./portalInteractionController.js";
+import { createPlacementLayout } from "./placementLayout.js";
 import { AlphabetGlyph } from "./AlphabetGlyph.jsx";
 import {
   ALPHABET_LETTERS,
@@ -200,6 +204,7 @@ export default function TraceDream() {
       heroWarpSpeed: 0.0012,
       lastFrameTime: 0,
       lastRenderTime: 0,
+      editorWasVisible: false,
     };
     const bottomAnimation = {
       progress: 0,
@@ -251,6 +256,22 @@ export default function TraceDream() {
       syncPortalMaterial,
       drawBottomVideo: bottomVideoRenderer.draw,
     });
+    const mainTraceRenderer = createMainTraceRenderer({
+      state,
+      gsap,
+      heroDismissEase,
+      getTopGhostOffsets,
+      getHeroWarpOptions,
+      drawStamp,
+      drawAnimatedGhostStack,
+      drawScrollCue,
+      triggerAnchorReveal,
+      drawBetweenGhostsAndStamps: () => {
+        portalRenderer.draw();
+        drawPlacementGrid();
+        bottomVideoRenderer.drawShade();
+      },
+    });
     const diagonalGhostRenderer = createDiagonalGhostRenderer({
       ctx,
       state,
@@ -258,41 +279,12 @@ export default function TraceDream() {
       getWarpPhase,
     });
 
-    const lettersInput = q("#lettersInput");
-    const fontSizeRange = q("#fontSizeRange");
-    const rowGapRange = q("#rowGapRange");
-    const sampleDistanceRange = q("#sampleDistanceRange");
-    const maxTrailRange = q("#maxTrailRange");
-    const curvePullRange = q("#curvePullRange");
-    const ghostOpacityRange = q("#ghostOpacityRange");
-    const ghostLineWidthRange = q("#ghostLineWidthRange");
-    const warpToggle = q("#warpToggle");
-    const warpAmountRange = q("#warpAmountRange");
-    const warpFrequencyRange = q("#warpFrequencyRange");
-    const rotateToggle = q("#rotateToggle");
-    const rotateSpeedRange = q("#rotateSpeedRange");
-    const fillColorInput = q("#fillColorInput");
-    const ghostColorInput = q("#ghostColorInput");
-    const bgColorInput = q("#bgColorInput");
-    const rebuildBtn = q("#traceRebuildBtn");
-    const portalRevealStartRange = q("#portalRevealStartRange");
-    const portalRevealDistanceRange = q("#portalRevealDistanceRange");
-    const portalRevealDurationRange = q("#portalRevealDurationRange");
-    const portalShaderIntensityRange = q("#portalShaderIntensityRange");
-    const portalShaderNoiseScaleRange = q("#portalShaderNoiseScaleRange");
-    const portalShaderNoiseSpeedRange = q("#portalShaderNoiseSpeedRange");
-    const portalShaderSoftnessRange = q("#portalShaderSoftnessRange");
-    const portalShaderNoiseAmountRange = q("#portalShaderNoiseAmountRange");
-    const portalShaderFlowXRange = q("#portalShaderFlowXRange");
-    const portalShaderFlowYRange = q("#portalShaderFlowYRange");
-    const portalShaderFlowNoiseYRange = q("#portalShaderFlowNoiseYRange");
-    const portalShaderZoomRange = q("#portalShaderZoomRange");
-    const portalDriftRange = q("#portalDriftRange");
-    const portalParallaxRange = q("#portalParallaxRange");
-    const bottomLineStaggerRange = q("#bottomLineStaggerRange");
-    const hidePlacementGridToggle = q("#hidePlacementGridToggle");
-    const portalConfigExportBtn = q("#portalConfigExportBtn");
-    const portalConfigExport = q("#portalConfigExport");
+    const controls = createTraceControls({ root: stage, state, lettersFallback: LETTERS });
+    const {
+      rebuildBtn,
+      portalConfigExportBtn,
+      portalConfigExport,
+    } = controls.elements;
     const pathEditor = q("#creativityPathEditor");
     const pathGuidesToggle = q("#creativityGuidesToggle");
     const creativityGapRange = q("#creativityGapRange");
@@ -302,87 +294,54 @@ export default function TraceDream() {
     const traceViewport = q(".trace-viewport");
     let letters = LETTERS.slice();
     let activePathPoint = null;
-    let activePortalDrag = null;
-    let hoveredPortalCorner = null;
-    let selectedPortalItem = null;
+    const portalInteractionState = {
+      activePortalDrag: null,
+      hoveredPortalCorner: null,
+      selectedPortalItem: null,
+    };
     let pendingCreativityRebuild = 0;
     let pendingCreativityEditorUpdate = false;
-
-    function setText(id, value) {
-      const node = q(`#${id}`);
-      if (node) node.textContent = value;
-    }
-
-    function syncLabels() {
-      setText("fontSizeVal", `${Math.round(state.fontSize)}px`);
-      setText("rowGapVal", `${Math.round(state.rowGapVh)}vh`);
-      setText("sampleDistanceVal", `${Math.round(state.sampleDistance)}px`);
-      setText("maxTrailVal", `${state.maxTrail}`);
-      setText("curvePullVal", `${Math.round(state.curvePull)}px`);
-      setText("ghostOpacityVal", state.ghostOpacity.toFixed(2));
-      setText("ghostLineWidthVal", state.ghostLineWidth.toFixed(1));
-      setText("warpAmountVal", `${Math.round(state.warpAmount)}px`);
-      setText("warpFrequencyVal", state.warpFrequency.toFixed(2));
-      setText("rotateSpeedVal", state.rotateSpeed.toFixed(2));
-      setText("portalRevealStartVal", `${Math.round(state.portalRevealStart)}vh`);
-      setText("portalRevealDistanceVal", `${Math.round(state.portalRevealDistance)}vh`);
-      setText("portalRevealDurationVal", `${state.portalRevealDuration.toFixed(2)}s`);
-      setText("portalShaderIntensityVal", state.portalShaderIntensity.toFixed(3));
-      setText("portalShaderNoiseScaleVal", state.portalShaderNoiseScale.toFixed(2));
-      setText("portalShaderNoiseSpeedVal", state.portalShaderNoiseSpeed.toFixed(2));
-      setText("portalShaderSoftnessVal", state.portalShaderSoftness.toFixed(2));
-      setText("portalShaderNoiseAmountVal", state.portalShaderNoiseAmount.toFixed(2));
-      setText("portalShaderFlowXVal", state.portalShaderFlowX.toFixed(2));
-      setText("portalShaderFlowYVal", state.portalShaderFlowY.toFixed(2));
-      setText("portalShaderFlowNoiseYVal", state.portalShaderFlowNoiseY.toFixed(2));
-      setText("portalShaderZoomVal", state.portalShaderZoom.toFixed(3));
-      setText("portalDriftVal", `${Math.round(state.portalDrift)}px`);
-      setText("portalParallaxVal", state.portalParallax.toFixed(3));
-      setText("bottomLineStaggerVal", `${state.bottomLineStagger.toFixed(2)}s`);
-      setText("creativityGapVal", `${Math.round(state.creativityGapVh)}vh`);
-    }
+    const placementLayout = createPlacementLayout({
+      state,
+      columns: PLACEMENT_GRID_COLUMNS,
+      rows: PLACEMENT_GRID_ROWS,
+      getPortalItemDocumentFrame,
+    });
+    const {
+      getPlacementGridCells,
+      getNearestPlacementCellInGap,
+      getPlacementBlock,
+      getPortalFrameForBlock,
+      framesOverlap,
+      getPlacedPortalFrames,
+      blockIsAvailable,
+      getNearestAvailablePlacementBlock,
+    } = placementLayout;
+    const portalInteraction = createPortalInteractionController({
+      state,
+      traceViewport,
+      interaction: portalInteractionState,
+      placementColumns: PLACEMENT_GRID_COLUMNS,
+      placementRows: PLACEMENT_GRID_ROWS,
+      getPortalItemDocumentFrame,
+      getPortalVisibleFrame,
+      getNearestAvailablePlacementBlock,
+      getNearestPlacementCellInGap,
+      getPlacementGridCells,
+      getPlacementBlock,
+      getPortalFrameForBlock,
+      blockIsAvailable,
+      getPlacedPortalFrames,
+      syncPortalConfigExport,
+    });
+    const {
+      getPortalItemInteractiveFrame,
+      getPortalFrameCorners,
+      getPortalLayerToggleRect,
+    } = portalInteraction;
 
     function syncControls() {
-      const parsed = (lettersInput.value || "APERIOS")
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "")
-        .split("")
-        .filter(Boolean);
-      letters = parsed.length ? parsed : LETTERS.slice();
-      state.fontSize = parseFloat(fontSizeRange.value);
-      state.rowGapVh = parseFloat(rowGapRange.value);
-      state.sampleDistance = parseFloat(sampleDistanceRange.value);
-      state.maxTrail = parseInt(maxTrailRange.value, 10);
-      state.curvePull = parseFloat(curvePullRange.value);
-      state.ghostOpacity = parseFloat(ghostOpacityRange.value);
-      state.ghostLineWidth = parseFloat(ghostLineWidthRange.value);
-      state.warpEnabled = warpToggle.checked;
-      state.warpAmount = parseFloat(warpAmountRange.value);
-      state.warpFrequency = parseFloat(warpFrequencyRange.value);
-      state.rotateEnabled = rotateToggle.checked;
-      state.rotateSpeed = parseFloat(rotateSpeedRange.value);
-      state.fillColor = fillColorInput.value;
-      state.ghostColor = ghostColorInput.value;
-      state.bgColor = bgColorInput.value;
-      state.portalRevealStart = parseFloat(portalRevealStartRange.value);
-      state.portalRevealDistance = parseFloat(portalRevealDistanceRange.value);
-      state.portalRevealDuration = parseFloat(portalRevealDurationRange.value);
-      state.portalShaderIntensity = parseFloat(portalShaderIntensityRange.value);
-      state.portalShaderNoiseScale = parseFloat(portalShaderNoiseScaleRange.value);
-      state.portalShaderNoiseSpeed = parseFloat(portalShaderNoiseSpeedRange.value);
-      state.portalShaderSoftness = parseFloat(portalShaderSoftnessRange.value);
-      state.portalShaderNoiseAmount = parseFloat(portalShaderNoiseAmountRange.value);
-      state.portalShaderFlowX = parseFloat(portalShaderFlowXRange.value);
-      state.portalShaderFlowY = parseFloat(portalShaderFlowYRange.value);
-      state.portalShaderFlowNoiseY = parseFloat(portalShaderFlowNoiseYRange.value);
-      state.portalShaderZoom = parseFloat(portalShaderZoomRange.value);
-      state.portalDrift = parseFloat(portalDriftRange.value);
-      state.portalParallax = parseFloat(portalParallaxRange.value);
-      state.bottomLineStagger = parseFloat(bottomLineStaggerRange.value);
-      state.hidePlacementGrid = Boolean(hidePlacementGridToggle?.checked);
-      state.creativityGapVh = parseFloat(creativityGapRange.value);
-      document.body.style.background = state.bgColor;
-      syncLabels();
+      letters = controls.syncControls();
     }
 
     function getLetterMetrics(letter) {
@@ -1390,171 +1349,6 @@ export default function TraceDream() {
       ctx.restore();
     }
 
-    function getPlacementGridCells() {
-      if (!state.anchors.length) return [];
-      const columns = PLACEMENT_GRID_COLUMNS;
-      const rows = PLACEMENT_GRID_ROWS;
-      const left = state.width * 0.08;
-      const width = state.width * 0.84;
-      const padY = state.fontSize * 0.55;
-      const cells = [];
-
-      for (let gapIndex = 0; gapIndex < state.anchors.length - 1; gapIndex += 1) {
-        const from = state.anchors[gapIndex];
-        const to = state.anchors[gapIndex + 1];
-        const top = Math.min(from.y, to.y) + state.height * 0.18 + padY;
-        const bottom = Math.max(from.y, to.y) + state.height * 0.18 - padY;
-        const height = bottom - top;
-        if (height <= 40) continue;
-
-        for (let row = 0; row < rows; row += 1) {
-          for (let column = 0; column < columns; column += 1) {
-            const x1 = left + (width * column) / columns;
-            const x2 = left + (width * (column + 1)) / columns;
-            const y1 = top + (height * row) / rows;
-            const y2 = top + (height * (row + 1)) / rows;
-            cells.push({
-              gapIndex,
-              column,
-              row,
-              label: `${from.letter}-${to.letter}`,
-              x1,
-              x2,
-              y1,
-              y2,
-              cx: (x1 + x2) * 0.5,
-              cy: (y1 + y2) * 0.5,
-            });
-          }
-        }
-      }
-
-      return cells;
-    }
-
-    function getNearestPlacementCell(x, documentY) {
-      const cells = getPlacementGridCells();
-      if (!cells.length) return null;
-      return cells.reduce((nearest, cell) => {
-        const distance = Math.hypot(cell.cx - x, cell.cy - documentY);
-        if (!nearest || distance < nearest.distance) return { cell, distance };
-        return nearest;
-      }, null)?.cell || null;
-    }
-
-    function getNearestPlacementCellInGap(x, documentY, gapIndex) {
-      const cells = getPlacementGridCells().filter((cell) => cell.gapIndex === gapIndex);
-      if (!cells.length) return null;
-      return cells.reduce((nearest, cell) => {
-        const distance = Math.hypot(cell.cx - x, cell.cy - documentY);
-        if (!nearest || distance < nearest.distance) return { cell, distance };
-        return nearest;
-      }, null)?.cell || null;
-    }
-
-    function getPlacementBlock(originCell, span = { columns: 1, rows: 1 }) {
-      const columns = PLACEMENT_GRID_COLUMNS;
-      const rows = PLACEMENT_GRID_ROWS;
-      const colSpan = clamp(Math.round(span.columns || 1), 1, columns);
-      const rowSpan = clamp(Math.round(span.rows || 1), 1, rows);
-      const originColumn = clamp(originCell.column, 0, columns - colSpan);
-      const originRow = clamp(originCell.row, 0, rows - rowSpan);
-      const cells = getPlacementGridCells();
-      const endCell = cells.find(
-        (cell) =>
-          cell.gapIndex === originCell.gapIndex &&
-          cell.column === originColumn + colSpan - 1 &&
-          cell.row === originRow + rowSpan - 1
-      );
-      const startCell = cells.find(
-        (cell) => cell.gapIndex === originCell.gapIndex && cell.column === originColumn && cell.row === originRow
-      );
-      if (!startCell || !endCell) return null;
-      return {
-        gapIndex: originCell.gapIndex,
-        column: originColumn,
-        row: originRow,
-        label: originCell.label,
-        span: { columns: colSpan, rows: rowSpan },
-        x1: startCell.x1,
-        y1: startCell.y1,
-        x2: endCell.x2,
-        y2: endCell.y2,
-        width: endCell.x2 - startCell.x1,
-        height: endCell.y2 - startCell.y1,
-        cx: (startCell.x1 + endCell.x2) * 0.5,
-        cy: (startCell.y1 + endCell.y2) * 0.5,
-      };
-    }
-
-    function getNearestPlacementBlock(x, documentY, span) {
-      const cells = getPlacementGridCells();
-      if (!cells.length) return null;
-      return cells.reduce((nearest, cell) => {
-        const block = getPlacementBlock(cell, span);
-        if (!block) return nearest;
-        const distance = Math.hypot(block.cx - x, block.cy - documentY);
-        if (!nearest || distance < nearest.distance) return { block, distance };
-        return nearest;
-      }, null)?.block || null;
-    }
-
-    function getPortalFrameForBlock(block, item = null, stretched = false) {
-      const aspect = Math.max(0.1, item?.aspect || 1);
-      const width = stretched ? block.width : Math.min(block.width, block.height * aspect);
-      const height = stretched ? block.height : width / aspect;
-      return {
-        x: block.cx,
-        y: block.cy,
-        width: Math.max(40, width),
-        height: Math.max(40, height),
-        left: block.cx - width * 0.5,
-        right: block.cx + width * 0.5,
-        top: block.cy - height * 0.5,
-        bottom: block.cy + height * 0.5,
-      };
-    }
-
-    function framesOverlap(a, b, gap = 50) {
-      return !(
-        a.right + gap < b.left ||
-        a.left > b.right + gap ||
-        a.bottom + gap < b.top ||
-        a.top > b.bottom + gap
-      );
-    }
-
-    function getPlacedPortalFrames(exceptItem = null) {
-      return state.portalImages
-        .filter((item) => item !== exceptItem && item.width > 0 && item.height > 0)
-        .map((item) => {
-          const frame = getPortalItemDocumentFrame(item);
-          return {
-            left: frame.x - frame.width * 0.5,
-            right: frame.x + frame.width * 0.5,
-            top: frame.y - frame.height * 0.5,
-            bottom: frame.y + frame.height * 0.5,
-          };
-        });
-    }
-
-    function blockIsAvailable(item, block, placedFrames) {
-      const frame = getPortalFrameForBlock(block, item, item.manualPlacement?.stretched);
-      return !placedFrames.some((placedFrame) => framesOverlap(frame, placedFrame));
-    }
-
-    function getNearestAvailablePlacementBlock(x, documentY, span, item, placedFrames = getPlacedPortalFrames(item)) {
-      const cells = getPlacementGridCells();
-      if (!cells.length) return null;
-      return cells.reduce((nearest, cell) => {
-        const block = getPlacementBlock(cell, span);
-        if (!block || !blockIsAvailable(item, block, placedFrames)) return nearest;
-        const distance = Math.hypot(block.cx - x, block.cy - documentY);
-        if (!nearest || distance < nearest.distance) return { block, distance };
-        return nearest;
-      }, null)?.block || null;
-    }
-
     function drawPlacementGrid() {
       if (state.hidePlacementGrid) return;
       if (!state.anchors.length) return;
@@ -1616,8 +1410,8 @@ export default function TraceDream() {
       if (state.hidePlacementGrid) return;
       bottomCtx.save();
       bottomCtx.setLineDash([]);
-      const activeResize = activePortalDrag?.mode === "resize" ? activePortalDrag : null;
-      const handleTarget = activeResize || hoveredPortalCorner || (selectedPortalItem ? { item: selectedPortalItem } : null);
+      const activeResize = portalInteractionState.activePortalDrag?.mode === "resize" ? portalInteractionState.activePortalDrag : null;
+      const handleTarget = activeResize || portalInteractionState.hoveredPortalCorner || (portalInteractionState.selectedPortalItem ? { item: portalInteractionState.selectedPortalItem } : null);
       if (handleTarget?.item?.mesh && (handleTarget.item.reveal?.progress ?? 0) > 0.02) {
         const frame = getPortalItemInteractiveFrame(handleTarget.item);
         getPortalFrameCorners(frame).forEach((corner) => {
@@ -1710,7 +1504,13 @@ export default function TraceDream() {
       });
     }
 
+    // The ticker remains mounted for GSAP timing, but hidden tabs do no canvas
+    // work. This keeps scroll/reveal state available when the tab returns.
     function render() {
+      if (document.hidden) {
+        state.lastFrameTime = 0;
+        return;
+      }
       const now = performance.now();
       const minFrameMs = 1000 / TRACE_RENDER_FPS;
       if (state.lastRenderTime && now - state.lastRenderTime < minFrameMs) return;
@@ -1725,103 +1525,31 @@ export default function TraceDream() {
       const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
       const clearHeight = state.height * 2.5;
       ctx.clearRect(0, clearY, state.width, clearHeight);
-      bottomCtx.clearRect(0, clearY, state.width, clearHeight);
-      bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
-      const idleGhostCount = Math.min(4, state.ghosts.length);
-      const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
+      // Editor-only canvas work is disabled while its panel/grid is hidden.
+      const editorIsActive = !state.hidePlacementGrid || Boolean(
+        portalInteractionState.activePortalDrag || portalInteractionState.hoveredPortalCorner || portalInteractionState.selectedPortalItem
+      );
+      if (editorIsActive || state.editorWasVisible) {
+        bottomCtx.clearRect(0, clearY, state.width, clearHeight);
+      }
+      state.editorWasVisible = editorIsActive;
+      const bottomGhostScreenTop = state.bottomGhostCanvasTop - state.rawScrollY;
+      const bottomGhostScreenBottom = bottomGhostScreenTop + (state.bottomGhostCanvasHeight || state.height);
+      const bottomGhostIsNear = bottomGhostScreenBottom > -state.height * 1.5 && bottomGhostScreenTop < state.height * 2.5;
+      // The bottom ghost canvas is local to its section, so it need not clear
+      // or redraw while that section is far outside the viewport.
+      const drawBottomGhost = bottomGhostIsNear;
+      if (drawBottomGhost) {
+        bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
+      }
       if (pathControlsOpenRef.current || activePathPoint) updatePathEditor();
-
-      if (!state.hasScrolled && state.heroDismiss <= 0.001) {
-        const topGhostOffsets = getTopGhostOffsets();
-        for (let i = 0; i < ghostCount; i += 1) {
-          if (state.ghosts[i]?.letter === state.anchors[0]?.letter) continue;
-          drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
-        }
-        const heroWarpOptions = getHeroWarpOptions();
-        if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, 1, 0, heroWarpOptions);
-        state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets, 1, 0, heroWarpOptions));
-        drawScrollCue(1);
-        return;
-      }
-
-      if (state.heroDismiss < 1) {
-        const topGhostOffsets = getTopGhostOffsets();
-        const heroReturnOpacity = 1 - heroDismissEase(state.heroDismiss);
-        if (heroReturnOpacity > 0.001) {
-          const heroWarpOptions = getHeroWarpOptions();
-          if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, heroReturnOpacity, 0, heroWarpOptions);
-          drawScrollCue(heroReturnOpacity);
-        }
-        const heroWordEased = heroDismissEase(state.heroDismiss);
-        state.heroChars.forEach((stamp) => {
-          const eased = heroWordEased;
-          const opacity = 1 - eased;
-          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, 0, getHeroWarpOptions());
-        });
-      }
-
-      const activeGhosts = [];
-      state.segments.forEach((segment) => {
-        const anchor = state.anchors[segment.toIndex];
-        if (!anchor) return;
-        const anchorScreenY = anchor.y - state.scrollY + state.height * 0.18;
-        const centerY = state.height * 0.5;
-        const revealStartY = centerY + state.height * (state.rowGapVh / 100);
-        const segmentProgress = clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
-        const segmentGhostCount = Math.floor(segment.ghosts.length * clamp(segmentProgress * 1.15, 0, 1));
-        for (let i = 0; i < segmentGhostCount; i += 1) {
-          const ghost = segment.ghosts[i];
-          activeGhosts.push(ghost);
-          drawStamp(ghost, false, i, Math.max(segmentGhostCount, 1));
-        }
-      });
-      portalRenderer.draw();
-      drawPlacementGrid();
-      bottomVideoRenderer.drawShade();
-      for (let i = 0; i < state.anchors.length; i += 1) {
-        const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
-        const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0, progress: 1 };
-        if (i > 0) {
-          const centerY = state.height * 0.5;
-          const landingDistance = state.fontSize * 0.9;
-          const scrubStartDistance = state.fontSize * 1.7;
-          const nearestDistance = activeGhosts.reduce((nearest, ghost) => {
-            if (ghost.letter !== state.anchors[i].letter) return nearest;
-            return Math.min(nearest, Math.hypot(ghost.x - state.anchors[i].x, ghost.y - state.anchors[i].y));
-          }, Infinity);
-          const scrubProgress = clamp(
-            (scrubStartDistance - nearestDistance) / Math.max(1, scrubStartDistance - landingDistance),
-            0,
-            1
-          );
-          const centerProgress = clamp((centerY + scrubStartDistance - screenY) / Math.max(1, scrubStartDistance), 0, 1);
-          const targetProgress = Math.max(scrubProgress, centerProgress);
-
-          if (targetProgress >= 1) {
-            state.landedAnchors[i] = true;
-            triggerAnchorReveal(i);
-          } else {
-            if (reveal.active) gsap.killTweensOf(reveal);
-            reveal.active = false;
-            state.landedAnchors[i] = false;
-            reveal.progress += (targetProgress - reveal.progress) * 0.28;
-            const easedTarget = heroDismissEase(reveal.progress);
-            reveal.opacity = easedTarget;
-            reveal.depth = -1 + easedTarget;
-          }
-        }
-        if (i > 0 && !state.landedAnchors[i] && reveal.opacity <= 0.001) continue;
-        const anchorOpacity = reveal.opacity;
-        drawStamp(state.anchors[i], true, i, state.anchors.length, {
-          ...(i === 0 ? getHeroWarpOptions() : {}),
-          opacity: anchorOpacity,
-          depth: reveal.depth,
-        });
-      }
-      bottomGhostRenderer.draw();
+      if (!mainTraceRenderer.draw()) return;
+      if (drawBottomGhost) bottomGhostRenderer.draw();
       const creativityScreenTop = state.creativitySectionStart - state.scrollY + state.height * 0.18;
       const creativityScreenBottom = creativityScreenTop + state.creativitySectionHeight;
       const creativityIsNear = creativityScreenBottom > -state.height && creativityScreenTop < state.height * 2;
+      // IN-CREATIVITY keeps its exact draw behavior whenever it is nearby,
+      // but contributes no per-frame work while it is far offscreen.
       if (creativityIsNear) diagonalGhostRenderer.draw();
       drawPortalResizeHandles();
     }
@@ -1852,221 +1580,6 @@ export default function TraceDream() {
         width: Math.max(1, width),
         height: Math.max(1, height),
       };
-    }
-
-    function getPortalItemInteractiveFrame(item) {
-      return item.visibleRenderFrame || getPortalVisibleFrame(getPortalItemDocumentFrame(item), item);
-    }
-
-    function getPortalFrameCorners(frame) {
-      const left = frame.x - frame.width * 0.5;
-      const right = frame.x + frame.width * 0.5;
-      const top = frame.y - frame.height * 0.5;
-      const bottom = frame.y + frame.height * 0.5;
-      return [
-        { corner: "top-left", x: left, y: top },
-        { corner: "top-right", x: right, y: top },
-        { corner: "bottom-right", x: right, y: bottom },
-        { corner: "bottom-left", x: left, y: bottom },
-      ];
-    }
-
-    function getPortalLayerToggleRect(frame) {
-      return {
-        x: frame.x,
-        y: frame.y + frame.height * 0.5 + 18,
-        width: 58,
-        height: 20,
-      };
-    }
-
-    function findPortalLayerToggleAt(clientX, clientY) {
-      if (state.hidePlacementGrid) return null;
-      const documentY = clientY + state.rawScrollY;
-      const targetItems = [
-        ...(selectedPortalItem ? [selectedPortalItem] : []),
-        ...state.portalImages.filter((item) => item !== selectedPortalItem).reverse(),
-      ];
-      for (const item of targetItems) {
-        if (!item?.mesh || (item.reveal?.progress ?? 0) <= 0.02) continue;
-        const button = getPortalLayerToggleRect(getPortalItemInteractiveFrame(item));
-        const inside =
-          clientX >= button.x - button.width * 0.5 &&
-          clientX <= button.x + button.width * 0.5 &&
-          documentY >= button.y - button.height * 0.5 &&
-          documentY <= button.y + button.height * 0.5;
-        if (inside) return item;
-      }
-      return null;
-    }
-
-    function togglePortalItemLayer(item) {
-      item.layer = item.layer === "front" ? "back" : "front";
-      if (item.manualPlacement) item.manualPlacement.layer = item.layer;
-      selectedPortalItem = item;
-      syncPortalConfigExport();
-    }
-
-    function findPortalItemAt(clientX, clientY) {
-      if (state.hidePlacementGrid) return null;
-      const documentY = clientY + state.rawScrollY;
-      return [...state.portalImages].reverse().find((item) => {
-        if (!item.mesh || (item.reveal?.progress ?? 0) <= 0.02) return false;
-        const frame = getPortalItemInteractiveFrame(item);
-        return (
-          clientX >= frame.x - frame.width * 0.5 &&
-          clientX <= frame.x + frame.width * 0.5 &&
-          documentY >= frame.y - frame.height * 0.5 &&
-          documentY <= frame.y + frame.height * 0.5
-        );
-      });
-    }
-
-    function findPortalResizeHandleAt(clientX, clientY) {
-      if (state.hidePlacementGrid) return null;
-      const documentY = clientY + state.rawScrollY;
-      for (const item of [...state.portalImages].reverse()) {
-        if (!item.mesh || (item.reveal?.progress ?? 0) <= 0.02) continue;
-        const frame = getPortalItemInteractiveFrame(item);
-        const corners = getPortalFrameCorners(frame);
-        const directCorner = corners.find((point) => Math.hypot(clientX - point.x, documentY - point.y) <= 22);
-        if (directCorner) return { item, corner: directCorner.corner };
-        const inside =
-          clientX >= frame.x - frame.width * 0.5 &&
-          clientX <= frame.x + frame.width * 0.5 &&
-          documentY >= frame.y - frame.height * 0.5 &&
-          documentY <= frame.y + frame.height * 0.5;
-        if (inside) {
-          const nearest = corners.reduce((best, point) => {
-            const distance = Math.hypot(clientX - point.x, documentY - point.y);
-            if (!best || distance < best.distance) return { point, distance };
-            return best;
-          }, null)?.point;
-          if (nearest) return { item, corner: nearest.corner, hoverOnly: true };
-        }
-      }
-      return null;
-    }
-
-    function snapPortalItemToEvent(item, event) {
-      const currentSpan = item.manualPlacement?.span || (item.index === 0 ? { columns: 1, rows: 1 } : { columns: 2, rows: 2 });
-      const span = event.altKey ? { columns: 1, rows: 1 } : event.shiftKey ? { columns: 2, rows: 2 } : currentSpan;
-      const block = getNearestAvailablePlacementBlock(event.clientX, event.clientY + state.rawScrollY, span, item);
-      if (!block) return;
-      const frame = getPortalFrameForBlock(block, item, item.manualPlacement?.stretched);
-      item.width = frame.width;
-      item.height = frame.height;
-      item.manualPlacement = {
-        x: block.cx,
-        y: block.cy - state.height * 0.18,
-        layer: item.layer,
-        span: block.span,
-        stretched: Boolean(item.manualPlacement?.stretched),
-        cell: {
-          gapIndex: block.gapIndex,
-          column: block.column,
-          row: block.row,
-          label: block.label,
-        },
-      };
-      item.x = item.manualPlacement.x;
-      item.y = item.manualPlacement.y;
-      item.layoutBlock = block;
-      item.layoutFrame = frame;
-      syncPortalConfigExport();
-    }
-
-    function resizePortalItemToEvent(item, event, corner = "bottom-left") {
-      const currentBlock = item.layoutBlock;
-      if (!currentBlock) return;
-      const targetCell = getNearestPlacementCellInGap(event.clientX, event.clientY + state.rawScrollY, currentBlock.gapIndex);
-      if (!targetCell) return;
-      const currentLeft = currentBlock.column;
-      const currentRight = currentBlock.column + currentBlock.span.columns - 1;
-      const currentTop = currentBlock.row;
-      const currentBottom = currentBlock.row + currentBlock.span.rows - 1;
-      const nextLeft = corner.includes("left") ? clamp(Math.min(targetCell.column, currentRight), 0, currentRight) : currentLeft;
-      const nextRight = corner.includes("right") ? clamp(Math.max(targetCell.column, currentLeft), currentLeft, PLACEMENT_GRID_COLUMNS - 1) : currentRight;
-      const nextTop = corner.includes("top") ? clamp(Math.min(targetCell.row, currentBottom), 0, currentBottom) : currentTop;
-      const nextBottom = corner.includes("bottom") ? clamp(Math.max(targetCell.row, currentTop), currentTop, PLACEMENT_GRID_ROWS - 1) : currentBottom;
-      const span = {
-        columns: clamp(nextRight - nextLeft + 1, 1, PLACEMENT_GRID_COLUMNS),
-        rows: clamp(nextBottom - nextTop + 1, 1, PLACEMENT_GRID_ROWS),
-      };
-      const originCell = getPlacementGridCells().find(
-        (cell) => cell.gapIndex === currentBlock.gapIndex && cell.column === nextLeft && cell.row === nextTop
-      );
-      if (!originCell) return;
-      const block = getPlacementBlock(originCell, span);
-      if (!block || !blockIsAvailable(item, block, getPlacedPortalFrames(item))) return;
-      const frame = getPortalFrameForBlock(block, item, true);
-      item.width = frame.width;
-      item.height = frame.height;
-      item.x = block.cx;
-      item.y = block.cy - state.height * 0.18;
-      item.layoutBlock = block;
-      item.layoutFrame = frame;
-      item.manualPlacement = {
-        x: item.x,
-        y: item.y,
-        layer: item.layer,
-        span: block.span,
-        stretched: true,
-        cell: {
-          gapIndex: block.gapIndex,
-          column: block.column,
-          row: block.row,
-          label: block.label,
-        },
-      };
-      syncPortalConfigExport();
-    }
-
-    function onPortalPointerDown(event) {
-      if (event.target.closest?.(".controls, .controls-toggle, .path-controls-toggle, .path-editor")) return;
-      const layerToggleItem = findPortalLayerToggleAt(event.clientX, event.clientY);
-      if (layerToggleItem) {
-        togglePortalItemLayer(layerToggleItem);
-        event.preventDefault();
-        return;
-      }
-      const resizeHandle = findPortalResizeHandleAt(event.clientX, event.clientY);
-      if (resizeHandle && !resizeHandle.hoverOnly) {
-        selectedPortalItem = resizeHandle.item;
-        activePortalDrag = { item: resizeHandle.item, corner: resizeHandle.corner, mode: "resize" };
-        traceViewport?.setPointerCapture?.(event.pointerId);
-        event.preventDefault();
-        return;
-      }
-      const item = findPortalItemAt(event.clientX, event.clientY);
-      if (!item) return;
-      selectedPortalItem = item;
-      activePortalDrag = { item, mode: "move" };
-      snapPortalItemToEvent(item, event);
-      traceViewport?.setPointerCapture?.(event.pointerId);
-      event.preventDefault();
-    }
-
-    function onPortalPointerMove(event) {
-      if (!activePortalDrag) {
-        hoveredPortalCorner = findPortalResizeHandleAt(event.clientX, event.clientY);
-        const layerToggleItem = findPortalLayerToggleAt(event.clientX, event.clientY);
-        traceViewport.style.cursor = layerToggleItem
-          ? "pointer"
-          : hoveredPortalCorner
-            ? (hoveredPortalCorner.corner.includes("left") === hoveredPortalCorner.corner.includes("top") ? "nwse-resize" : "nesw-resize")
-            : "";
-        return;
-      }
-      if (activePortalDrag.mode === "resize") resizePortalItemToEvent(activePortalDrag.item, event, activePortalDrag.corner);
-      else snapPortalItemToEvent(activePortalDrag.item, event);
-      event.preventDefault();
-    }
-
-    function onPortalPointerUp() {
-      activePortalDrag = null;
-      hoveredPortalCorner = null;
-      traceViewport.style.cursor = "";
     }
 
     function onPathPointerDown(event) {
@@ -2134,44 +1647,11 @@ export default function TraceDream() {
 
     function rebuildCreativityFromControls() {
       state.creativityGapVh = parseFloat(creativityGapRange.value);
-      syncLabels();
+      controls.syncLabels();
       queueCreativityPathRebuild(true);
     }
 
-    const inputs = [
-      lettersInput,
-      fontSizeRange,
-      rowGapRange,
-      sampleDistanceRange,
-      maxTrailRange,
-      curvePullRange,
-      ghostOpacityRange,
-      ghostLineWidthRange,
-      warpToggle,
-      warpAmountRange,
-      warpFrequencyRange,
-      rotateToggle,
-      rotateSpeedRange,
-      fillColorInput,
-      ghostColorInput,
-      bgColorInput,
-      portalRevealStartRange,
-      portalRevealDistanceRange,
-      portalRevealDurationRange,
-      portalShaderIntensityRange,
-      portalShaderNoiseScaleRange,
-      portalShaderNoiseSpeedRange,
-      portalShaderSoftnessRange,
-      portalShaderNoiseAmountRange,
-      portalShaderFlowXRange,
-      portalShaderFlowYRange,
-      portalShaderFlowNoiseYRange,
-      portalShaderZoomRange,
-      portalDriftRange,
-      portalParallaxRange,
-      bottomLineStaggerRange,
-      hidePlacementGridToggle,
-    ];
+    const inputs = controls.inputs;
 
     inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
     creativityGapRange?.addEventListener("input", rebuildCreativityFromControls);
@@ -2184,9 +1664,9 @@ export default function TraceDream() {
     gsap.ticker.add(render);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
-    traceViewport?.addEventListener("pointerdown", onPortalPointerDown);
-    window.addEventListener("pointermove", onPortalPointerMove);
-    window.addEventListener("pointerup", onPortalPointerUp);
+    traceViewport?.addEventListener("pointerdown", portalInteraction.onPointerDown);
+    window.addEventListener("pointermove", portalInteraction.onPointerMove);
+    window.addEventListener("pointerup", portalInteraction.onPointerUp);
     pathEditor?.addEventListener("pointerdown", onPathPointerDown);
     window.addEventListener("pointermove", onPathPointerMove);
     window.addEventListener("pointerup", onPathPointerUp);
@@ -2201,9 +1681,9 @@ export default function TraceDream() {
       gsap.ticker.remove(render);
       gsap.killTweensOf(state);
       gsap.killTweensOf(bottomAnimation);
-      traceViewport?.removeEventListener("pointerdown", onPortalPointerDown);
-      window.removeEventListener("pointermove", onPortalPointerMove);
-      window.removeEventListener("pointerup", onPortalPointerUp);
+      traceViewport?.removeEventListener("pointerdown", portalInteraction.onPointerDown);
+      window.removeEventListener("pointermove", portalInteraction.onPointerMove);
+      window.removeEventListener("pointerup", portalInteraction.onPointerUp);
       state.portalImages.forEach((item) => gsap.killTweensOf(item.reveal));
       if (state.bottomVideo) gsap.killTweensOf(state.bottomVideo.reveal);
       window.removeEventListener("scroll", onScroll);

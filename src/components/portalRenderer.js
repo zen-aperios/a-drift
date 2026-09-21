@@ -1,5 +1,7 @@
 import { clamp } from "./traceMath.js";
 
+// Owns portal image placement and media-layer output. Reveal targets and
+// layout values are supplied by TraceDream to preserve the current behavior.
 export function createPortalRenderer({
   state,
   heroDismissEase,
@@ -30,6 +32,13 @@ export function createPortalRenderer({
 
     state.portalImages.forEach((item) => {
       const rawScreenY = item.y - state.rawScrollY + state.height * 0.18;
+      // Only the Firefox DOM fallback is gated here. Keep shader image work
+      // unchanged in Chrome/Brave, where it is part of the visual effect.
+      const isFarOffscreen = rawScreenY < -state.height * 1.5 - item.height || rawScreenY > state.height * 2.5 + item.height;
+      if (useDomPortalImages && isFarOffscreen) {
+        setPortalReveal(item, 0);
+        return;
+      }
       const revealStartY = state.height * (state.portalRevealStart / 100);
       const revealDistance = state.height * (state.portalRevealDistance / 100);
       const enterProgress = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);

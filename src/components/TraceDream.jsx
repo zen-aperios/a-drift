@@ -71,6 +71,7 @@ export default function TraceDream() {
       anchors: [],
       ghosts: [],
       heroChars: [],
+      landedAnchors: [],
       totalHeight: 0,
       drawProgress: 0,
       scrollY: 0,
@@ -365,6 +366,7 @@ export default function TraceDream() {
       glyphCache.clear();
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
+      state.landedAnchors = state.anchors.map((_, index) => index === 0);
       const chain = [];
       for (let i = 0; i < state.anchors.length - 1; i += 1) {
         const segment = sampleCurve(state.anchors[i], state.anchors[i + 1], i);
@@ -522,9 +524,17 @@ export default function TraceDream() {
       }
 
       for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
+      const activeGhosts = state.ghosts.slice(0, ghostCount);
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
-        if (i > 0 && screenY > state.height * 0.5) continue;
+        if (i > 0 && !state.landedAnchors[i]) {
+          const landingDistance = state.fontSize * 0.9;
+          state.landedAnchors[i] = activeGhosts.some((ghost) => (
+            ghost.letter === state.anchors[i].letter
+            && Math.hypot(ghost.x - state.anchors[i].x, ghost.y - state.anchors[i].y) <= landingDistance
+          )) || screenY <= state.height * 0.5;
+        }
+        if (i > 0 && !state.landedAnchors[i]) continue;
         drawStamp(state.anchors[i], true, i, state.anchors.length, i === 0 ? getHeroWarpOptions() : {});
       }
     }

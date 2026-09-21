@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import SphereHero from "./components/SphereHero.jsx";
 import TraceDream from "./components/TraceDream.jsx";
 

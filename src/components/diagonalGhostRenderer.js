@@ -194,11 +194,10 @@ export function createDiagonalGhostRenderer({
     ctx.save();
     const activeGhosts = [];
     const segmentTotal = Math.max(1, state.creativitySegments.length);
-    const chainStartT = (state.creativityPath.start.y - state.creativitySceneMinY) / Math.max(0.001, state.creativitySceneSpanY);
-    const chainStartY = state.creativitySectionStart + state.creativitySectionHeight * clamp(chainStartT, 0, 1);
-    const chainStartScreenY = chainStartY - state.scrollY + state.height * 0.18;
-    const chainDistance = state.height * (state.creativityGapVh / 100) * segmentTotal;
-    const chainProgress = clamp((state.height * 0.86 - chainStartScreenY) / Math.max(1, chainDistance), 0, 1);
+    const triggerY = state.scrollY + state.height * 0.68;
+    const revealStartY = state.creativitySectionStart + state.creativitySectionHeight * 0.04;
+    const revealEndY = state.creativitySectionStart + state.creativitySectionHeight * 0.82;
+    const chainProgress = clamp((triggerY - revealStartY) / Math.max(1, revealEndY - revealStartY), 0, 1);
     state.creativitySegments.forEach((segment, segmentIndex) => {
       const segmentStart = segmentIndex / segmentTotal;
       const segmentEnd = (segmentIndex + 1) / segmentTotal;

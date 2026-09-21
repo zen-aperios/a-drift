@@ -475,7 +475,6 @@ export default function TraceDream() {
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
-      const anchorCount = state.hasScrolled ? Math.floor(state.anchors.length * clamp(state.drawProgress * 0.95, 0, 1)) + 1 : 1;
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
@@ -500,7 +499,9 @@ export default function TraceDream() {
       }
 
       for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
-      for (let i = 0; i < Math.min(anchorCount, state.anchors.length); i += 1) {
+      for (let i = 0; i < state.anchors.length; i += 1) {
+        const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
+        if (i > 0 && screenY > state.height * 0.5) continue;
         drawStamp(state.anchors[i], true, i, state.anchors.length);
       }
     }

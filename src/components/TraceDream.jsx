@@ -76,6 +76,10 @@ export default function TraceDream() {
       scrollY: 0,
       hasScrolled: false,
       heroDismiss: 0,
+      heroWarpPhase: 0,
+      heroWarpSpeed: 0.0012,
+      heroWarpStopping: false,
+      lastFrameTime: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
 
@@ -332,6 +336,23 @@ export default function TraceDream() {
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
       state.hasScrolled = targetScroll > 2;
+      if (targetScroll > 2 && !state.heroWarpStopping) {
+        state.heroWarpStopping = true;
+        gsap.to(state, {
+          heroWarpSpeed: 0,
+          duration: 0.9,
+          ease: "power4.out",
+          overwrite: "auto",
+        });
+      } else if (targetScroll <= 2 && state.heroWarpStopping) {
+        state.heroWarpStopping = false;
+        gsap.to(state, {
+          heroWarpSpeed: 0.0012,
+          duration: 0.45,
+          ease: "power4.out",
+          overwrite: "auto",
+        });
+      }
 
       if (immediate) {
         gsap.set(state, {
@@ -400,8 +421,9 @@ export default function TraceDream() {
       const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
       const opacity = options.opacity ?? (solid ? 1 : Math.max(0, state.ghostOpacity * (0.22 + fade * 0.78)));
       const warpStrength = options.warpStrength ?? (0.28 + fade * 0.72);
+      const warpFrequency = options.warpFrequency ?? state.warpFrequency;
       const stripHeight = 1;
-      const basePhase = stamp.warpPhase;
+      const basePhase = stamp.warpPhase + (options.warpPhaseOffset ?? 0);
 
       ctx.save();
       ctx.translate(stamp.x, stamp.y - state.scrollY + state.height * 0.18);
@@ -412,8 +434,8 @@ export default function TraceDream() {
       for (let y = 0; y < height; y += stripHeight) {
         const sliceH = Math.min(stripHeight, height - y);
         const yNorm = y / height;
-        const bendA = Math.sin(yNorm * Math.PI * 2 * state.warpFrequency + basePhase);
-        const bendB = Math.cos(yNorm * Math.PI * state.warpFrequency * 0.65 - basePhase * 0.7);
+        const bendA = Math.sin(yNorm * Math.PI * 2 * warpFrequency + basePhase);
+        const bendB = Math.cos(yNorm * Math.PI * warpFrequency * 0.65 - basePhase * 0.7);
         const bend = (bendA * 0.72 + bendB * 0.28) * state.warpAmount * warpStrength;
         ctx.drawImage(glyphCanvas, 0, y * state.dpr, glyphCanvas.width, sliceH * state.dpr, bend, y, width, sliceH + 2);
       }
@@ -452,7 +474,14 @@ export default function TraceDream() {
       ctx.restore();
     }
 
-    function drawAnimatedGhostStack(stamp, offsets, opacityMultiplier = 1, yLift = 0) {
+    function getHeroWarpOptions() {
+      return {
+        warpPhaseOffset: state.heroWarpPhase,
+        warpFrequency: state.warpFrequency,
+      };
+    }
+
+    function drawAnimatedGhostStack(stamp, offsets, opacityMultiplier = 1, yLift = 0, options = {}) {
       const phase = (performance.now() * 0.00042 + stamp.x * 0.0002) % 1;
       for (let i = 5; i >= 1; i -= 1) {
         const slot = 5 - i;
@@ -464,14 +493,26 @@ export default function TraceDream() {
           false,
           i - 1,
           5,
-          { opacity: Math.pow(1 - normalizedAge, 1.35) * opacityMultiplier, warpStrength: 1 }
+          {
+            ...options,
+            opacity: Math.pow(1 - normalizedAge, 1.35) * opacityMultiplier,
+            warpStrength: 1,
+          }
         );
       }
 
-      drawStamp({ ...stamp, y: stamp.y - yLift }, true, 0, 1, { opacity: opacityMultiplier });
+      drawStamp({ ...stamp, y: stamp.y - yLift }, true, 0, 1, {
+        ...options,
+        opacity: opacityMultiplier,
+      });
     }
 
     function render() {
+      const now = performance.now();
+      if (!state.lastFrameTime) state.lastFrameTime = now;
+      const dt = now - state.lastFrameTime;
+      state.lastFrameTime = now;
+      state.heroWarpPhase += dt * state.heroWarpSpeed;
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
@@ -482,8 +523,9 @@ export default function TraceDream() {
           if (state.ghosts[i]?.letter === state.anchors[0]?.letter) continue;
           drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
         }
-        if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets);
-        state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets));
+        const heroWarpOptions = getHeroWarpOptions();
+        if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, 1, 0, heroWarpOptions);
+        state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets, 1, 0, heroWarpOptions));
         return;
       }
 
@@ -494,7 +536,7 @@ export default function TraceDream() {
           const localProgress = clamp((state.heroDismiss - staggerOffset) / Math.max(0.0001, 1 - staggerOffset), 0, 1);
           const eased = heroDismissEase(localProgress);
           const opacity = 1 - eased;
-          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28);
+          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions());
         });
       }
 

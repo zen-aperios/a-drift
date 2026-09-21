@@ -217,35 +217,53 @@ export default function TraceDream() {
     function buildHeroChars() {
       const firstAnchor = state.anchors[0];
       if (!firstAnchor) return [];
-      const phrase = "A DREAM";
+      const phrase = "DREAM";
       ctx.save();
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
 
-      let cursorX = 0;
+      let cursorX = firstAnchor.x + getHeroLeadAdvance();
       const chars = [];
       Array.from(phrase).forEach((char) => {
         const advance = char === " " ? state.fontSize * 0.42 : ctx.measureText(char).width;
-        if (char !== " ") {
-          const glyph = getGlyphCanvas(char, true);
-          chars.push({
-            ...createStamp(cursorX + advance * 0.5, firstAnchor.y, char, true),
-            visualWidth: glyph.width + state.warpAmount * 2,
-          });
-        }
+        if (char !== " ") chars.push(createStamp(cursorX + advance * 0.5, firstAnchor.y, char, true));
         cursorX += advance + state.fontSize * 0.015;
       });
 
       ctx.restore();
-      if (!chars.length) return chars;
-      const minX = Math.min(...chars.map((stamp) => stamp.x - stamp.visualWidth * 0.5));
-      const maxX = Math.max(...chars.map((stamp) => stamp.x + stamp.visualWidth * 0.5));
-      const shift = state.width * 0.5 - (minX + maxX) * 0.5;
-      return chars.map(({ visualWidth, ...stamp }) => ({
-        ...stamp,
-        x: stamp.x + shift,
-      }));
+      return chars;
+    }
+
+    function getHeroLeadAdvance() {
+      ctx.save();
+      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
+      const aAdvance = ctx.measureText("A").width;
+      ctx.restore();
+      return aAdvance * 0.62 + state.fontSize * 0.42;
+    }
+
+    function getCenteredHeroAnchorX() {
+      ctx.save();
+      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
+      const leadAdvance = getHeroLeadAdvance();
+      let cursorX = leadAdvance;
+      const bounds = [];
+      const aGlyph = getGlyphCanvas("A", true);
+      bounds.push({ x: 0, width: aGlyph.width + state.warpAmount * 2 });
+
+      "DREAM".split("").forEach((char) => {
+        const advance = ctx.measureText(char).width;
+        const glyph = getGlyphCanvas(char, true);
+        bounds.push({ x: cursorX + advance * 0.5, width: glyph.width + state.warpAmount * 2 });
+        cursorX += advance + state.fontSize * 0.015;
+      });
+
+      ctx.restore();
+      if (!bounds.length) return state.width * 0.5;
+      const minX = Math.min(...bounds.map((item) => item.x - item.width * 0.5));
+      const maxX = Math.max(...bounds.map((item) => item.x + item.width * 0.5));
+      return state.width * 0.5 - (minX + maxX) * 0.5;
     }
 
     function getTopGhostOffsets() {
@@ -282,9 +300,10 @@ export default function TraceDream() {
       const rightX = state.width * 0.72;
       const gap = state.height * (state.rowGapVh / 100);
       const topOffset = state.height * 0.28;
+      const heroAnchorX = getCenteredHeroAnchorX();
 
       for (let i = 0; i < letters.length; i += 1) {
-        anchors.push(createStamp(i % 2 === 0 ? leftX : rightX, topOffset + gap * i, letters[i], true));
+        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, topOffset + gap * i, letters[i], true));
       }
 
       state.totalHeight = topOffset * 2 + gap * Math.max(0, letters.length - 1) + state.height * 0.8;
@@ -459,6 +478,8 @@ export default function TraceDream() {
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
+        for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
+        if (state.anchors[0]) drawStamp(state.anchors[0], true, 0, state.anchors.length);
         state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets));
         return;
       }

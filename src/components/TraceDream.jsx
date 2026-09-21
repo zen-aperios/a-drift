@@ -73,6 +73,7 @@ export default function TraceDream() {
       segments: [],
       heroChars: [],
       landedAnchors: [],
+      anchorReveals: [],
       totalHeight: 0,
       drawProgress: 0,
       scrollY: 0,
@@ -368,6 +369,11 @@ export default function TraceDream() {
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
       state.landedAnchors = state.anchors.map((_, index) => index === 0);
+      state.anchorReveals = state.anchors.map((_, index) => ({
+        opacity: index === 0 ? 1 : 0,
+        depth: index === 0 ? 0 : -1,
+        active: index === 0,
+      }));
       const rawSegments = [];
       for (let i = 0; i < state.anchors.length - 1; i += 1) {
         const segment = sampleCurve(state.anchors[i], state.anchors[i + 1], i);
@@ -375,7 +381,8 @@ export default function TraceDream() {
         rawSegments.push({
           fromIndex: i,
           toIndex: i + 1,
-          letter: letters[i + 1] || letters[i],
+          fromLetter: letters[i] || letters[i + 1],
+          toLetter: letters[i + 1] || letters[i],
           points: segment,
         });
       }
@@ -388,7 +395,8 @@ export default function TraceDream() {
         for (let i = 0; i < ghostTotal; i += 1) {
           const t = ghostTotal === 1 ? 0 : i / (ghostTotal - 1);
           const point = segment.points[Math.round(t * (segment.points.length - 1))];
-          ghosts.push(createStamp(point.x, point.y, segment.letter, false));
+          const letter = t > 0.82 ? segment.toLetter : segment.fromLetter;
+          ghosts.push(createStamp(point.x, point.y, letter, false));
         }
         return {
           ...segment,
@@ -419,10 +427,14 @@ export default function TraceDream() {
       const warpFrequency = options.warpFrequency ?? state.warpFrequency;
       const stripHeight = 1;
       const basePhase = stamp.warpPhase + state.heroWarpPhase + (options.warpPhaseOffset ?? 0);
+      const depth = options.depth ?? 0;
+      const depthScale = options.scale ?? (1 + depth * 0.08);
+      const depthLift = depth * state.fontSize * 0.12;
 
       ctx.save();
-      ctx.translate(stamp.x, stamp.y - state.scrollY + state.height * 0.18);
+      ctx.translate(stamp.x, stamp.y - state.scrollY + state.height * 0.18 - depthLift);
       if (state.rotateEnabled) ctx.rotate(stamp.rotation);
+      if (depthScale !== 1) ctx.scale(depthScale, depthScale);
       ctx.translate(-width * 0.5, -height * 0.5);
       ctx.globalAlpha = opacity;
 
@@ -447,8 +459,12 @@ export default function TraceDream() {
       }
 
       ctx.save();
-      ctx.translate(stamp.x, screenY);
+      const depth = options.depth ?? 0;
+      const depthScale = options.scale ?? (1 + depth * 0.08);
+      const depthLift = depth * state.fontSize * 0.12;
+      ctx.translate(stamp.x, screenY - depthLift);
       if (state.rotateEnabled) ctx.rotate(stamp.rotation);
+      if (depthScale !== 1) ctx.scale(depthScale, depthScale);
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -499,6 +515,24 @@ export default function TraceDream() {
         ...options,
         opacity: opacityMultiplier,
       });
+    }
+
+    function triggerAnchorReveal(index) {
+      const reveal = state.anchorReveals[index];
+      if (!reveal || reveal.active) return;
+      reveal.active = true;
+      gsap.killTweensOf(reveal);
+      gsap.fromTo(
+        reveal,
+        { opacity: 0, depth: -1 },
+        {
+          opacity: 1,
+          depth: 0,
+          duration: 0.8,
+          ease: "power4.out",
+          overwrite: true,
+        }
+      );
     }
 
     function render() {
@@ -557,9 +591,15 @@ export default function TraceDream() {
             ghost.letter === state.anchors[i].letter
             && Math.hypot(ghost.x - state.anchors[i].x, ghost.y - state.anchors[i].y) <= landingDistance
           )) || screenY <= state.height * 0.5;
+          if (state.landedAnchors[i]) triggerAnchorReveal(i);
         }
         if (i > 0 && !state.landedAnchors[i]) continue;
-        drawStamp(state.anchors[i], true, i, state.anchors.length, i === 0 ? getHeroWarpOptions() : {});
+        const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0 };
+        drawStamp(state.anchors[i], true, i, state.anchors.length, {
+          ...(i === 0 ? getHeroWarpOptions() : {}),
+          opacity: reveal.opacity,
+          depth: reveal.depth,
+        });
       }
     }
 

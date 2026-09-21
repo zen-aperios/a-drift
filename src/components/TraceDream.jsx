@@ -515,7 +515,7 @@ export default function TraceDream() {
     function render() {
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
-      const ghostCount = state.hasScrolled ? state.ghosts.length : idleGhostCount;
+      const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * state.drawProgress) : idleGhostCount;
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
@@ -539,17 +539,10 @@ export default function TraceDream() {
         });
       }
 
-      const centerY = state.height * 0.5;
-      const ghostLeadY = state.height * (state.rowGapVh / 100) * 0.28;
-      const visibleGhosts = state.ghosts.filter((ghost) => {
-        const ghostScreenY = ghost.y - state.targetScrollY + state.height * 0.18;
-        return ghostScreenY <= centerY + ghostLeadY;
-      });
-      visibleGhosts.forEach((ghost, index) => {
-        drawStamp(ghost, false, index, Math.max(visibleGhosts.length, 1));
-      });
+      for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
       for (let i = 0; i < state.anchors.length; i += 1) {
         const anchorScreenY = state.anchors[i].y - state.targetScrollY + state.height * 0.18;
+        const centerY = state.height * 0.5;
         const revealStartY = centerY + (i === 0 ? state.height : state.height * (state.rowGapVh / 100));
         const localProgress = i === 0 ? 1 : clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
         const eased = heroDismissEase(localProgress);

@@ -65,22 +65,26 @@ export function createDiagonalGhostRenderer({
   function build() {
     const chars = Array.from(CONFIG.text);
     const sectionTop = state.creativitySectionStart;
+    const mapY = (y) => {
+      const normalizedY = (y - state.creativitySceneMinY) / Math.max(0.001, state.creativitySceneSpanY);
+      return sectionTop + state.creativitySectionHeight * clamp(normalizedY, 0, 1);
+    };
     const path = state.creativityPath;
     const start = {
       x: state.width * path.start.x,
-      y: sectionTop + state.creativitySectionHeight * path.start.y,
+      y: mapY(path.start.y),
     };
     const end = {
       x: state.width * path.end.x,
-      y: sectionTop + state.creativitySectionHeight * path.end.y,
+      y: mapY(path.end.y),
     };
     const p1 = {
       x: state.width * path.controlA.x,
-      y: sectionTop + state.creativitySectionHeight * path.controlA.y,
+      y: mapY(path.controlA.y),
     };
     const p2 = {
       x: state.width * path.controlB.x,
-      y: sectionTop + state.creativitySectionHeight * path.controlB.y,
+      y: mapY(path.controlB.y),
     };
     const pointAt = (t) => cubicPoint(start, p1, p2, end, t);
     const stamps = [];
@@ -93,7 +97,7 @@ export function createDiagonalGhostRenderer({
       const point = override
         ? {
             x: state.width * override.x,
-            y: sectionTop + state.creativitySectionHeight * override.y,
+            y: mapY(override.y),
           }
         : pointAt(t);
       stamps.push({
@@ -190,7 +194,8 @@ export function createDiagonalGhostRenderer({
     ctx.save();
     const activeGhosts = [];
     const segmentTotal = Math.max(1, state.creativitySegments.length);
-    const chainStartY = state.creativitySectionStart + state.creativitySectionHeight * state.creativityPath.start.y;
+    const chainStartT = (state.creativityPath.start.y - state.creativitySceneMinY) / Math.max(0.001, state.creativitySceneSpanY);
+    const chainStartY = state.creativitySectionStart + state.creativitySectionHeight * clamp(chainStartT, 0, 1);
     const chainStartScreenY = chainStartY - state.scrollY + state.height * 0.18;
     const chainDistance = state.height * (state.creativityGapVh / 100) * segmentTotal;
     const chainProgress = clamp((state.height * 0.86 - chainStartScreenY) / Math.max(1, chainDistance), 0, 1);

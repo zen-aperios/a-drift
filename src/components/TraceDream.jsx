@@ -92,6 +92,8 @@ export default function TraceDream() {
       creativitySegments: [],
       creativitySectionStart: 0,
       creativitySectionHeight: 0,
+      creativitySceneMinY: 0,
+      creativitySceneSpanY: 1,
       creativityGapVh: 10,
       creativityStampOverrides: [],
       creativityPath: {
@@ -573,29 +575,94 @@ export default function TraceDream() {
       const bottomMargin = 48;
       const creativityGap = 192;
       state.bottomSectionHeight = Math.max(state.height * 1.05, bottomVideoHeight + state.height * 0.35 + bottomMargin);
-      state.creativitySectionHeight = state.height * (state.creativityGapVh / 100) * Math.max(1, "IN-CREATIVITY".length - 1) + state.height * 0.72;
       const bottomVideoBottom = state.bottomSectionStart + state.height * 0.54 + bottomVideoHeight * 0.5;
-      state.creativitySectionStart = bottomVideoBottom + creativityGap - state.creativitySectionHeight * state.creativityPath.start.y;
+      syncCreativitySceneMetrics(bottomVideoBottom + creativityGap);
       state.totalHeight = state.creativitySectionStart + state.creativitySectionHeight + bottomMargin;
-      scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
     }
 
+    function getCreativityNodeYBounds() {
+      const values = [
+        state.creativityPath.start.y,
+        state.creativityPath.controlA.y,
+        state.creativityPath.controlB.y,
+        state.creativityPath.end.y,
+        ...state.creativityStampOverrides.filter(Boolean).map((point) => point.y),
+      ];
+      const min = clamp(Math.min(...values), 0.02, 0.98);
+      const max = clamp(Math.max(...values), 0.02, 0.98);
+      return {
+        min,
+        span: Math.max(0.08, max - min),
+      };
+    }
+
+    function syncCreativitySceneMetrics(nextStart = state.creativitySectionStart) {
+      const nodeBounds = getCreativityNodeYBounds();
+      const baseHeight = state.height * (state.creativityGapVh / 100) * Math.max(1, "IN-CREATIVITY".length - 1) + state.height * 0.72;
+      state.creativitySceneMinY = nodeBounds.min;
+      state.creativitySceneSpanY = nodeBounds.span;
+      state.creativitySectionStart = nextStart;
+      state.creativitySectionHeight = Math.max(state.height * 0.38, baseHeight * nodeBounds.span + state.height * 0.24);
+    }
+
+    function getCreativityContentBottom() {
+      const worldYs = [];
+      const pathPoints = [
+        state.creativityPath.start,
+        state.creativityPath.controlA,
+        state.creativityPath.controlB,
+        state.creativityPath.end,
+        ...state.creativityStampOverrides.filter(Boolean),
+      ];
+
+      pathPoints.forEach((point) => {
+        if (!point) return;
+        worldYs.push(getCreativityWorldY(point.y));
+      });
+      state.creativityStamps.forEach((stamp) => worldYs.push(stamp.y));
+      state.creativitySegments.forEach((segment) => {
+        segment.ghosts.forEach((ghost) => worldYs.push(ghost.y));
+      });
+
+      if (!worldYs.length) return state.creativitySectionStart + state.creativitySectionHeight;
+      return Math.max(...worldYs) + Math.max(160, state.height * 0.16);
+    }
+
+    function syncTraceSpacerHeight() {
+      const bottomMargin = 48;
+      const contentBottom = getCreativityContentBottom();
+      state.totalHeight = contentBottom + bottomMargin;
+      scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
+    }
+
     function rebuildCreativityPath() {
+      syncCreativitySceneMetrics();
       diagonalGhostRenderer.clearCache();
       const creativityGrid = diagonalGhostRenderer.build();
       state.creativityStamps = creativityGrid.stamps;
       state.creativitySegments = creativityGrid.segments;
+      syncTraceSpacerHeight();
       syncPathExport();
     }
 
     function getCreativityPointScreen(key) {
       const point = state.creativityPath[key];
-      const worldY = state.creativitySectionStart + state.creativitySectionHeight * point.y;
+      const worldY = getCreativityWorldY(point.y);
       return {
         x: state.width * point.x,
         y: worldY - state.scrollY + state.height * 0.18,
       };
+    }
+
+    function getCreativityWorldY(y) {
+      const normalizedY = (y - state.creativitySceneMinY) / Math.max(0.001, state.creativitySceneSpanY);
+      return state.creativitySectionStart + state.creativitySectionHeight * clamp(normalizedY, 0, 1);
+    }
+
+    function getCreativityRawY(worldY) {
+      const sectionY = clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativitySectionHeight), 0, 1);
+      return clamp(state.creativitySceneMinY + sectionY * state.creativitySceneSpanY, 0.02, 0.98);
     }
 
     function syncPathExport() {
@@ -810,6 +877,8 @@ export default function TraceDream() {
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
       const isReturningToHero = targetScroll <= 2 && state.heroDismiss > 0.001;
+      const traceBottom = scrollSpacer.offsetTop + scrollSpacer.offsetHeight;
+      stage.classList.toggle("is-past-trace", targetScroll >= traceBottom - 2);
       state.rawScrollY = targetScroll;
       if (targetScroll > 2) state.hasScrolled = true;
 
@@ -1330,8 +1399,8 @@ export default function TraceDream() {
       const rawX = clamp(event.clientX / Math.max(1, state.width), 0.02, 0.98);
       const snapColumns = [0.1, 0.5, 0.9];
       const snappedX = snapColumns.reduce((nearest, value) => (Math.abs(value - rawX) < Math.abs(nearest - rawX) ? value : nearest), snapColumns[0]);
-      const rawY = clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativitySectionHeight), 0.02, 0.98);
-      const rowGap = (state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativitySectionHeight);
+      const rawY = getCreativityRawY(worldY);
+      const rowGap = ((state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativitySectionHeight)) * state.creativitySceneSpanY;
       const rowBase = state.creativityPath.start.y;
       const snappedRow = Math.round((rawY - rowBase) / Math.max(0.001, rowGap));
       const snappedY = clamp(rowBase + snappedRow * rowGap, 0.02, 0.98);

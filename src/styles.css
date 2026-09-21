@@ -152,6 +152,74 @@ body {
   min-height: 300vh;
 }
 
+.logo-sequence {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  min-height: 100vh;
+  background: #000000;
+  overflow: hidden;
+}
+
+.trace-stage.is-past-trace .trace-media-canvas,
+.trace-stage.is-past-trace .trace-canvas,
+.trace-stage.is-past-trace .bottom-ghost-canvas,
+.trace-stage.is-past-trace .path-editor,
+.trace-stage.is-past-trace .controls,
+.trace-stage.is-past-trace .controls-toggle,
+.trace-stage.is-past-trace .path-controls-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.logo-sequence__mark {
+  position: relative;
+  width: min(28.9vw, 306px);
+  aspect-ratio: 615 / 574;
+  isolation: isolate;
+}
+
+.logo-sequence__ghosts,
+.logo-sequence__ghost,
+.logo-sequence__solid {
+  position: absolute;
+  inset: 0;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+.logo-sequence__ghosts {
+  z-index: 0;
+}
+
+.logo-sequence__ghost {
+  overflow: visible;
+  will-change: opacity, transform;
+}
+
+.logo-sequence__slice {
+  will-change: transform;
+  shape-rendering: geometricPrecision;
+}
+
+.logo-sequence__ghost-path {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
+}
+
+.logo-sequence__solid {
+  z-index: 1;
+}
+
+.logo-sequence__solid-path {
+  fill: #ffffff;
+  shape-rendering: geometricPrecision;
+}
+
 .controls {
   position: fixed;
   top: 16px;

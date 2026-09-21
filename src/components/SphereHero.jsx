@@ -121,6 +121,8 @@ export default function SphereHero({ onComplete }) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
+    const stage = host.closest(".sphere-stage");
+    const q = (selector) => stage.querySelector(selector);
 
     document.body.style.overflow = "hidden";
     host.innerHTML = "";
@@ -177,6 +179,78 @@ export default function SphereHero({ onComplete }) {
     let morphMix = 0;
     let holdMode = false;
     let frameId = 0;
+
+    const sequenceInput = q("#sequenceInput");
+    const glyphAmountRange = q("#glyphAmountRange");
+    const fontStyleSelect = q("#fontStyleSelect");
+    const radiusRange = q("#radiusRange");
+    const textScaleRange = q("#textScaleRange");
+    const poleShrinkRange = q("#poleShrinkRange");
+    const densityRange = q("#densityRange");
+    const pointSizeRange = q("#pointSizeRange");
+    const beamAlphaRange = q("#beamAlphaRange");
+    const beamDensityRange = q("#beamDensityRange");
+    const beamFadeRange = q("#beamFadeRange");
+    const beamJitterRange = q("#beamJitterRange");
+    const pulseRange = q("#pulseRange");
+    const morphDurationRange = q("#morphDurationRange");
+    const holdDurationRange = q("#holdDurationRange");
+    const travelModeSelect = q("#travelModeSelect");
+    const rotationSpeedRange = q("#rotationSpeedRange");
+    const rotationEaseSelect = q("#rotationEaseSelect");
+    const tiltRange = q("#tiltRange");
+    const pauseCheck = q("#pauseCheck");
+    const rebuildBtn = q("#rebuildBtn");
+    const nextBtn = q("#nextBtn");
+    const statusText = q("#statusText");
+    let paused = false;
+
+    function setText(id, value) {
+      const node = q(`#${id}`);
+      if (node) node.textContent = value;
+    }
+
+    function updateLabels() {
+      setText("glyphAmountVal", String(Math.round(config.glyphAmount)));
+      setText("beamFadeVal", config.beamFade.toFixed(2));
+      setText("radiusVal", config.radius.toFixed(2));
+      setText("textScaleVal", config.textScale.toFixed(2));
+      setText("poleShrinkVal", config.poleShrink.toFixed(2));
+      setText("densityVal", String(Number(config.density.toFixed(2))));
+      setText("pointSizeVal", config.pointSize.toFixed(2));
+      setText("beamAlphaVal", config.beamAlpha.toFixed(2));
+      setText("beamDensityVal", config.beamDensity.toFixed(2));
+      setText("beamJitterVal", config.beamJitter.toFixed(2));
+      setText("pulseVal", config.pulse.toFixed(2));
+      setText("morphDurationVal", `${config.morphDuration.toFixed(1)}s`);
+      setText("holdDurationVal", `${config.holdDuration.toFixed(1)}s`);
+      setText("rotationSpeedVal", `${config.rotationSpeed.toFixed(1)}s`);
+      setText("tiltVal", `${config.tilt.toFixed(0)}deg`);
+    }
+
+    function syncConfig() {
+      config.sequence = sequenceInput.value || "A";
+      config.glyphAmount = parseInt(glyphAmountRange.value, 10);
+      config.fontStyle = fontStyleSelect.value;
+      config.radius = parseFloat(radiusRange.value);
+      config.textScale = parseFloat(textScaleRange.value);
+      config.poleShrink = parseFloat(poleShrinkRange.value);
+      config.density = parseFloat(densityRange.value);
+      config.pointSize = parseFloat(pointSizeRange.value);
+      config.beamAlpha = parseFloat(beamAlphaRange.value);
+      config.beamDensity = parseFloat(beamDensityRange.value);
+      config.beamFade = parseFloat(beamFadeRange.value);
+      config.beamJitter = parseFloat(beamJitterRange.value);
+      config.pulse = parseFloat(pulseRange.value);
+      config.morphDuration = parseFloat(morphDurationRange.value);
+      config.holdDuration = parseFloat(holdDurationRange.value);
+      config.travelMode = travelModeSelect.value;
+      config.rotationSpeed = parseFloat(rotationSpeedRange.value);
+      config.rotationEase = rotationEaseSelect.value;
+      config.tilt = parseFloat(tiltRange.value);
+      paused = pauseCheck.checked;
+      updateLabels();
+    }
 
     function uvToSphere(u, v) {
       const theta = u * Math.PI * 2;
@@ -352,6 +426,7 @@ export default function SphereHero({ onComplete }) {
     }
 
     function buildGeometry() {
+      syncConfig();
       sequenceChars = sanitizeSequence(config.sequence);
       if (!sequenceChars.length) sequenceChars = ["A", "R", "T"];
       currentIndex = 0;
@@ -359,6 +434,11 @@ export default function SphereHero({ onComplete }) {
       nextSet = buildSphereGlyphField(sequenceChars[(currentIndex + 1) % sequenceChars.length]);
       maxPointCount = Math.max(currentSet.length, nextSet.length);
       rebuildGeometryMeshes();
+      if (statusText) {
+        const currentChar = sequenceChars[currentIndex] || "A";
+        const nextChar = sequenceChars[(currentIndex + 1) % sequenceChars.length] || currentChar;
+        statusText.textContent = `Glyphs of "${currentChar}" are spread across the sphere and breaking toward "${nextChar}" while the sphere keeps spinning and every beam pulls back to center.`;
+      }
     }
 
     function advanceLetter() {
@@ -391,12 +471,18 @@ export default function SphereHero({ onComplete }) {
         const beamVisible = !burst && hash(i * 2.173 + 19.7) <= config.beamDensity;
         let mixedU = wrapMix(from.u, to.u, morphMix);
         const mixedV = THREE.MathUtils.lerp(from.v, to.v, morphMix);
-        mixedU += (hash(i * 0.71) - 0.5) * 0.012 * holdShake * Math.sin(time * 60 + i);
+        mixedU += (hash(i * 0.71) - 0.5) * 0.075 * holdShake * Math.sin(time * 86 + i);
         workingPosition.copy(uvToSphere(mixedU, mixedV));
         workingPosition.x += THREE.MathUtils.lerp(from.jx, to.jx, morphMix);
         workingPosition.y += THREE.MathUtils.lerp(from.jy, to.jy, morphMix);
         workingPosition.z += THREE.MathUtils.lerp(from.jz, to.jz, morphMix);
         workingPosition.normalize().multiplyScalar(config.radius * pulse);
+        if (holdShake > 0) {
+          const shake = Math.pow(holdShake, 1.35);
+          workingPosition.x += (hash(i * 11.17 + time * 31) - 0.5) * shake * 1.25;
+          workingPosition.y += (hash(i * 13.37 + time * 29) - 0.5) * shake * 1.25;
+          workingPosition.z += (hash(i * 17.71 + time * 23) - 0.5) * shake * 1.25;
+        }
 
         if (burst > 0) {
           const direction = workingPosition.clone().normalize();
@@ -440,7 +526,6 @@ export default function SphereHero({ onComplete }) {
       lineGeometry.attributes.aAlpha.needsUpdate = true;
       pointGeometry.computeBoundingSphere();
       lineGeometry.computeBoundingSphere();
-      host.parentElement?.style.setProperty("--flash", String(Math.max(0, burst * (1 - burst) * 1.8)));
     }
 
     function resize() {
@@ -454,16 +539,18 @@ export default function SphereHero({ onComplete }) {
       frameId = requestAnimationFrame(animate);
       const dt = clock.getDelta();
       const rotationPhase = (clock.elapsedTime / Math.max(0.1, config.rotationSpeed)) * Math.PI * 2;
-      stageTime += dt;
-      if (!holdMode) {
-        morphMix = easeInOutCubic(clamp(stageTime / config.morphDuration, 0, 1));
-        if (stageTime >= config.morphDuration) {
-          holdMode = true;
-          stageTime = 0;
+      if (!paused) {
+        stageTime += dt;
+        if (!holdMode) {
+          morphMix = easeInOutCubic(clamp(stageTime / config.morphDuration, 0, 1));
+          if (stageTime >= config.morphDuration) {
+            holdMode = true;
+            stageTime = 0;
+          }
+        } else if (stageTime >= config.holdDuration) {
+          advanceLetter();
+          return;
         }
-      } else if (stageTime >= config.holdDuration) {
-        advanceLetter();
-        return;
       }
       root.rotation.y = rotationPhase;
       updateGeometryFrame(clock.elapsedTime);
@@ -507,12 +594,48 @@ export default function SphereHero({ onComplete }) {
     buildGeometry();
     animate();
 
+    const listeners = [
+      [glyphAmountRange, "input", buildGeometry],
+      [fontStyleSelect, "change", buildGeometry],
+      [radiusRange, "input", buildGeometry],
+      [textScaleRange, "input", buildGeometry],
+      [poleShrinkRange, "input", buildGeometry],
+      [densityRange, "input", buildGeometry],
+      [pointSizeRange, "input", () => {
+        syncConfig();
+        if (pointMaterial) pointMaterial.size = config.pointSize;
+      }],
+      [beamAlphaRange, "input", () => {
+        syncConfig();
+        if (lineMaterial) lineMaterial.uniforms.uOpacity.value = config.beamAlpha;
+      }],
+      [beamDensityRange, "input", syncConfig],
+      [beamFadeRange, "input", syncConfig],
+      [beamJitterRange, "input", buildGeometry],
+      [pulseRange, "input", syncConfig],
+      [morphDurationRange, "input", syncConfig],
+      [holdDurationRange, "input", syncConfig],
+      [travelModeSelect, "change", syncConfig],
+      [rotationSpeedRange, "input", syncConfig],
+      [rotationEaseSelect, "change", syncConfig],
+      [tiltRange, "input", () => {
+        syncConfig();
+        root.rotation.x = THREE.MathUtils.degToRad(config.tilt);
+      }],
+      [pauseCheck, "change", syncConfig],
+      [sequenceInput, "change", buildGeometry],
+      [rebuildBtn, "click", buildGeometry],
+      [nextBtn, "click", advanceLetter],
+    ];
+    listeners.forEach(([node, eventName, handler]) => node.addEventListener(eventName, handler));
+
     return () => {
       window.clearInterval(progressTimer);
       cancelAnimationFrame(frameId);
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("resize", resize);
+      listeners.forEach(([node, eventName, handler]) => node.removeEventListener(eventName, handler));
       disposeMeshes();
       controls.dispose();
       dotTexture.dispose();
@@ -528,6 +651,83 @@ export default function SphereHero({ onComplete }) {
       <div className="hold-meter" aria-hidden="true">
         <span />
       </div>
+      <aside className="controls controls--sphere">
+        <div className="controls__block">
+          <p className="eyebrow">Three.js Beam Study</p>
+          <h1>Sphere Row Letter Beams</h1>
+          <p className="status" id="statusText">Repeated letter rows wrap a sphere while beam lines pull every point back to the center.</p>
+        </div>
+        <div className="controls__block">
+          <label htmlFor="sequenceInput">Letter Sequence</label>
+          <textarea id="sequenceInput" rows="4" defaultValue={"A\nR\nT\nE"} />
+          <label htmlFor="glyphAmountRange">Glyph Amount <span id="glyphAmountVal" /></label>
+          <input id="glyphAmountRange" type="range" min="1" max="16" step="1" defaultValue="16" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="fontStyleSelect">Font Style</label>
+          <select id="fontStyleSelect" defaultValue="arial-black">
+            <option value="arial-black">Arial Black</option>
+            <option value="dm-sans">DM Sans Bold</option>
+            <option value="georgia">Georgia Bold</option>
+            <option value="courier">Courier Bold</option>
+          </select>
+          <label htmlFor="radiusRange">Sphere Radius <span id="radiusVal" /></label>
+          <input id="radiusRange" type="range" min="1.6" max="5.5" step="0.01" defaultValue="3.35" />
+          <label htmlFor="textScaleRange">Glyph Scale <span id="textScaleVal" /></label>
+          <input id="textScaleRange" type="range" min="8" max="10" step="0.01" defaultValue="8" />
+          <label htmlFor="poleShrinkRange">Pole Shrink <span id="poleShrinkVal" /></label>
+          <input id="poleShrinkRange" type="range" min="0" max="1" step="0.01" defaultValue="0" />
+          <label htmlFor="densityRange">Pixel Density <span id="densityVal" /></label>
+          <input id="densityRange" type="range" min="0.1" max="1" step="0.01" defaultValue="1" />
+          <label htmlFor="pointSizeRange">Point Size <span id="pointSizeVal" /></label>
+          <input id="pointSizeRange" type="range" min="0.002" max="0.1" step="0.001" defaultValue="0.1" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="beamAlphaRange">Beam Alpha <span id="beamAlphaVal" /></label>
+          <input id="beamAlphaRange" type="range" min="0.02" max="0.8" step="0.01" defaultValue="0.14" />
+          <label htmlFor="beamDensityRange">Beam Density <span id="beamDensityVal" /></label>
+          <input id="beamDensityRange" type="range" min="0.05" max="1" step="0.01" defaultValue="0.35" />
+          <label htmlFor="beamFadeRange">Center Fade <span id="beamFadeVal" /></label>
+          <input id="beamFadeRange" type="range" min="0" max="0.92" step="0.01" defaultValue="0.9" />
+          <label htmlFor="beamJitterRange">Beam Jitter <span id="beamJitterVal" /></label>
+          <input id="beamJitterRange" type="range" min="0" max="0.6" step="0.01" defaultValue="0" />
+          <label htmlFor="pulseRange">Pulse <span id="pulseVal" /></label>
+          <input id="pulseRange" type="range" min="0" max="1.8" step="0.01" defaultValue="0" />
+          <label htmlFor="morphDurationRange">Relocation Speed <span id="morphDurationVal" /></label>
+          <input id="morphDurationRange" type="range" min="0.6" max="10" step="0.1" defaultValue="6" />
+          <label htmlFor="holdDurationRange">Hold Duration <span id="holdDurationVal" /></label>
+          <input id="holdDurationRange" type="range" min="0.2" max="4" step="0.1" defaultValue="0.9" />
+          <label htmlFor="travelModeSelect">Point Travel</label>
+          <select id="travelModeSelect" defaultValue="horizontal">
+            <option value="horizontal">Horizontal</option>
+            <option value="alternate-horizontal">Alternate Horizontal</option>
+            <option value="diagonal">Diagonal</option>
+            <option value="alternate-diagonal">Alternate Diagonal</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+        <div className="controls__block">
+          <label htmlFor="rotationSpeedRange">Rotation Loop <span id="rotationSpeedVal" /></label>
+          <input id="rotationSpeedRange" type="range" min="2" max="40" step="0.1" defaultValue="24" />
+          <label htmlFor="rotationEaseSelect">Rotation Smooth</label>
+          <select id="rotationEaseSelect" defaultValue="soft">
+            <option value="linear">Linear</option>
+            <option value="soft">Soft</option>
+            <option value="softer">Softer</option>
+            <option value="glide">Glide</option>
+          </select>
+          <label htmlFor="tiltRange">Tilt <span id="tiltVal" /></label>
+          <input id="tiltRange" type="range" min="-60" max="60" step="1" defaultValue="-18" />
+          <label className="checkline">
+            <input id="pauseCheck" type="checkbox" />
+            <span>Pause Morph</span>
+          </label>
+        </div>
+        <div className="controls__block controls__actions">
+          <button id="rebuildBtn" type="button">Rebuild</button>
+          <button id="nextBtn" type="button">Next Letter</button>
+        </div>
+      </aside>
     </section>
   );
 }

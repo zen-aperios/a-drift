@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import gsap from "gsap";
 
-const LETTERS = "ADREAM".split("");
+const LETTERS = "APERIOS".split("");
 
 function hexToRgba(hex, alpha) {
   const safe = hex.replace("#", "");
@@ -45,16 +45,18 @@ export default function TraceDream() {
     window.scrollTo({ top: 0, behavior: "instant" });
 
     const ctx = canvas.getContext("2d");
+    const stage = canvas.closest(".trace-stage");
+    const q = (selector) => stage.querySelector(selector);
     const glyphCache = new Map();
     const state = {
       width: 0,
       height: 0,
       dpr: 1,
       fontSize: 116,
-      rowGapVh: 50,
+      rowGapVh: 70,
       sampleDistance: 0,
       maxTrail: 1200,
-      curvePull: 120,
+      curvePull: 700,
       scrollEase: 0.93,
       ghostOpacity: 1,
       ghostLineWidth: 1,
@@ -76,6 +78,72 @@ export default function TraceDream() {
       heroDismiss: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
+
+    const lettersInput = q("#lettersInput");
+    const fontSizeRange = q("#fontSizeRange");
+    const rowGapRange = q("#rowGapRange");
+    const sampleDistanceRange = q("#sampleDistanceRange");
+    const maxTrailRange = q("#maxTrailRange");
+    const curvePullRange = q("#curvePullRange");
+    const scrollEaseRange = q("#scrollEaseRange");
+    const ghostOpacityRange = q("#ghostOpacityRange");
+    const ghostLineWidthRange = q("#ghostLineWidthRange");
+    const warpToggle = q("#warpToggle");
+    const warpAmountRange = q("#warpAmountRange");
+    const warpFrequencyRange = q("#warpFrequencyRange");
+    const rotateToggle = q("#rotateToggle");
+    const rotateSpeedRange = q("#rotateSpeedRange");
+    const fillColorInput = q("#fillColorInput");
+    const ghostColorInput = q("#ghostColorInput");
+    const bgColorInput = q("#bgColorInput");
+    const rebuildBtn = q("#traceRebuildBtn");
+    let letters = LETTERS.slice();
+
+    function setText(id, value) {
+      const node = q(`#${id}`);
+      if (node) node.textContent = value;
+    }
+
+    function syncLabels() {
+      setText("fontSizeVal", `${Math.round(state.fontSize)}px`);
+      setText("rowGapVal", `${Math.round(state.rowGapVh)}vh`);
+      setText("sampleDistanceVal", `${Math.round(state.sampleDistance)}px`);
+      setText("maxTrailVal", `${state.maxTrail}`);
+      setText("curvePullVal", `${Math.round(state.curvePull)}px`);
+      setText("scrollEaseVal", state.scrollEase.toFixed(2));
+      setText("ghostOpacityVal", state.ghostOpacity.toFixed(2));
+      setText("ghostLineWidthVal", state.ghostLineWidth.toFixed(1));
+      setText("warpAmountVal", `${Math.round(state.warpAmount)}px`);
+      setText("warpFrequencyVal", state.warpFrequency.toFixed(2));
+      setText("rotateSpeedVal", state.rotateSpeed.toFixed(2));
+    }
+
+    function syncControls() {
+      const parsed = (lettersInput.value || "APERIOS")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .split("")
+        .filter(Boolean);
+      letters = parsed.length ? parsed : LETTERS.slice();
+      state.fontSize = parseFloat(fontSizeRange.value);
+      state.rowGapVh = parseFloat(rowGapRange.value);
+      state.sampleDistance = parseFloat(sampleDistanceRange.value);
+      state.maxTrail = parseInt(maxTrailRange.value, 10);
+      state.curvePull = parseFloat(curvePullRange.value);
+      state.scrollEase = parseFloat(scrollEaseRange.value);
+      state.ghostOpacity = parseFloat(ghostOpacityRange.value);
+      state.ghostLineWidth = parseFloat(ghostLineWidthRange.value);
+      state.warpEnabled = warpToggle.checked;
+      state.warpAmount = parseFloat(warpAmountRange.value);
+      state.warpFrequency = parseFloat(warpFrequencyRange.value);
+      state.rotateEnabled = rotateToggle.checked;
+      state.rotateSpeed = parseFloat(rotateSpeedRange.value);
+      state.fillColor = fillColorInput.value;
+      state.ghostColor = ghostColorInput.value;
+      state.bgColor = bgColorInput.value;
+      document.body.style.background = state.bgColor;
+      syncLabels();
+    }
 
     function getLetterMetrics(letter) {
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
@@ -149,7 +217,7 @@ export default function TraceDream() {
     function buildHeroChars() {
       const firstAnchor = state.anchors[0];
       if (!firstAnchor) return [];
-      const text = "A DREAM";
+      const text = "DREAM";
       ctx.save();
       ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
       ctx.textAlign = "left";
@@ -202,11 +270,11 @@ export default function TraceDream() {
       const gap = state.height * (state.rowGapVh / 100);
       const topOffset = state.height * 0.28;
 
-      for (let i = 0; i < LETTERS.length; i += 1) {
-        anchors.push(createStamp(i % 2 === 0 ? leftX : rightX, topOffset + gap * i, LETTERS[i], true));
+      for (let i = 0; i < letters.length; i += 1) {
+        anchors.push(createStamp(i % 2 === 0 ? leftX : rightX, topOffset + gap * i, letters[i], true));
       }
 
-      state.totalHeight = topOffset * 2 + gap * Math.max(0, LETTERS.length - 1) + state.height * 0.8;
+      state.totalHeight = topOffset * 2 + gap * Math.max(0, letters.length - 1) + state.height * 0.8;
       scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
     }
@@ -276,7 +344,7 @@ export default function TraceDream() {
           const idx = Math.round(t * (chain.length - 1));
           const point = chain[idx];
           const letterIndex = clamp(Math.round(t * (state.anchors.length - 1)), 0, state.anchors.length - 1);
-          ghosts.push(createStamp(point.x, point.y, LETTERS[letterIndex], false));
+          ghosts.push(createStamp(point.x, point.y, letters[letterIndex], false));
         }
       }
 
@@ -288,7 +356,6 @@ export default function TraceDream() {
       state.dpr = window.devicePixelRatio || 1;
       state.width = window.innerWidth;
       state.height = window.innerHeight;
-      state.fontSize = clamp(Math.round(state.width * 0.092), 72, 132);
       canvas.width = Math.round(state.width * state.dpr);
       canvas.height = Math.round(state.height * state.dpr);
       ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
@@ -408,6 +475,34 @@ export default function TraceDream() {
       updateScrollTargets();
     }
 
+    function rebuildFromControls() {
+      syncControls();
+      rebuildLayout();
+    }
+
+    const inputs = [
+      lettersInput,
+      fontSizeRange,
+      rowGapRange,
+      sampleDistanceRange,
+      maxTrailRange,
+      curvePullRange,
+      scrollEaseRange,
+      ghostOpacityRange,
+      ghostLineWidthRange,
+      warpToggle,
+      warpAmountRange,
+      warpFrequencyRange,
+      rotateToggle,
+      rotateSpeedRange,
+      fillColorInput,
+      ghostColorInput,
+      bgColorInput,
+    ];
+
+    inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
+    rebuildBtn.addEventListener("click", rebuildLayout);
+    syncControls();
     gsap.ticker.add(render);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
@@ -419,6 +514,8 @@ export default function TraceDream() {
       gsap.killTweensOf(state);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
+      inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
+      rebuildBtn.removeEventListener("click", rebuildLayout);
       glyphCache.clear();
       document.body.style.overflowX = "";
       document.body.style.overflowY = "";
@@ -429,6 +526,62 @@ export default function TraceDream() {
     <section className="trace-stage">
       <canvas ref={canvasRef} className="trace-canvas" />
       <div ref={spacerRef} className="trace-spacer" aria-hidden="true" />
+      <aside className="controls controls--trace">
+        <div className="controls__block">
+          <p className="eyebrow">Pen Reference Build</p>
+          <h1>Trace Letters Lines</h1>
+          <p className="status">A sparse four-ghost idle trace fades from light to dark, then hands off to the full scroll reveal.</p>
+        </div>
+        <div className="controls__block">
+          <label htmlFor="lettersInput">Letters</label>
+          <textarea id="lettersInput" rows="3" defaultValue="APERIOS" />
+          <label htmlFor="fontSizeRange">Font Size <span id="fontSizeVal" /></label>
+          <input id="fontSizeRange" type="range" min="48" max="220" step="1" defaultValue="116" />
+          <label htmlFor="rowGapRange">Row Gap <span id="rowGapVal" /></label>
+          <input id="rowGapRange" type="range" min="20" max="80" step="1" defaultValue="70" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="sampleDistanceRange">Stagger Offset <span id="sampleDistanceVal" /></label>
+          <input id="sampleDistanceRange" type="range" min="0" max="120" step="1" defaultValue="0" />
+          <label htmlFor="maxTrailRange">Ghost Count <span id="maxTrailVal" /></label>
+          <input id="maxTrailRange" type="range" min="4" max="1200" step="1" defaultValue="1200" />
+          <label htmlFor="curvePullRange">Curve Pull <span id="curvePullVal" /></label>
+          <input id="curvePullRange" type="range" min="0" max="700" step="1" defaultValue="700" />
+          <label htmlFor="scrollEaseRange">Scroll Ease <span id="scrollEaseVal" /></label>
+          <input id="scrollEaseRange" type="range" min="0.05" max="1" step="0.01" defaultValue="0.93" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="ghostOpacityRange">Ghost Opacity <span id="ghostOpacityVal" /></label>
+          <input id="ghostOpacityRange" type="range" min="0.05" max="1" step="0.01" defaultValue="1" />
+          <label htmlFor="ghostLineWidthRange">Ghost Line Width <span id="ghostLineWidthVal" /></label>
+          <input id="ghostLineWidthRange" type="range" min="0.4" max="4" step="0.1" defaultValue="1" />
+          <label className="toggle-row" htmlFor="warpToggle">
+            <span>Warp Letters</span>
+            <input id="warpToggle" type="checkbox" defaultChecked />
+          </label>
+          <label htmlFor="warpAmountRange">Warp Amount <span id="warpAmountVal" /></label>
+          <input id="warpAmountRange" type="range" min="0" max="48" step="1" defaultValue="14" />
+          <label htmlFor="warpFrequencyRange">Warp Frequency <span id="warpFrequencyVal" /></label>
+          <input id="warpFrequencyRange" type="range" min="0.2" max="3" step="0.05" defaultValue="1.05" />
+          <label className="toggle-row" htmlFor="rotateToggle">
+            <span>Rotate Letters</span>
+            <input id="rotateToggle" type="checkbox" />
+          </label>
+          <label htmlFor="rotateSpeedRange">Rotate Amount <span id="rotateSpeedVal" /></label>
+          <input id="rotateSpeedRange" type="range" min="0" max="4" step="0.05" defaultValue="0.35" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="fillColorInput">Solid Fill</label>
+          <input id="fillColorInput" type="color" defaultValue="#ffffff" />
+          <label htmlFor="ghostColorInput">Ghost Color</label>
+          <input id="ghostColorInput" type="color" defaultValue="#8b8b8b" />
+          <label htmlFor="bgColorInput">Background</label>
+          <input id="bgColorInput" type="color" defaultValue="#000000" />
+        </div>
+        <div className="controls__block">
+          <button id="traceRebuildBtn" type="button">Rebuild Layout</button>
+        </div>
+      </aside>
     </section>
   );
 }

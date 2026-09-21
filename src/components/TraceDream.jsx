@@ -10,6 +10,7 @@ import {
 } from "./portalMedia.js";
 import { applyPortalLayout } from "./portalLayout.js";
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
+import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
 
 const LETTERS = "APERIOS".split("");
 const BOTTOM_VIDEO_URL = new URL("../../logofolio 2026-aperios-design.mp4", import.meta.url).href;
@@ -56,16 +57,6 @@ export default function TraceDream() {
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     const glyphCache = new Map();
-    const bottomGlyphCache = new Map();
-    const bottomGridConfig = {
-      fontSize: 116,
-      maxTrail: 120,
-      curvePull: 84,
-      ghostOpacity: 0.58,
-      ghostLineWidth: 1,
-      ghostColor: "#ffffff",
-      fillColor: "#ffffff",
-    };
     let cancelled = false;
     const state = {
       width: 0,
@@ -132,6 +123,14 @@ export default function TraceDream() {
       started: false,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
+    const bottomGhostRenderer = createBottomGhostRenderer({
+      ctx: bottomCtx,
+      state,
+      heroDismissEase,
+      getWarpPhase,
+      getFrame: getBottomVideoFrame,
+      getProgress: () => bottomAnimation.progress,
+    });
 
     const lettersInput = q("#lettersInput");
     const fontSizeRange = q("#fontSizeRange");
@@ -292,50 +291,6 @@ export default function TraceDream() {
 
       const cached = { canvas: offscreen, width, height };
       glyphCache.set(key, cached);
-      return cached;
-    }
-
-    function getBottomGlyphCanvas(letter, solid) {
-      const color = solid ? bottomGridConfig.fillColor : bottomGridConfig.ghostColor;
-      const key = `${letter}|${solid ? "fill" : "stroke"}|${bottomGridConfig.fontSize}|${bottomGridConfig.ghostLineWidth}|${color}`;
-      if (bottomGlyphCache.has(key)) return bottomGlyphCache.get(key);
-
-      bottomCtx.save();
-      bottomCtx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
-      bottomCtx.textAlign = "center";
-      bottomCtx.textBaseline = "middle";
-      const metrics = bottomCtx.measureText(letter);
-      bottomCtx.restore();
-
-      const left = -(metrics.actualBoundingBoxLeft || bottomGridConfig.fontSize * 0.28);
-      const right = metrics.actualBoundingBoxRight || bottomGridConfig.fontSize * 0.28;
-      const top = -(metrics.actualBoundingBoxAscent || bottomGridConfig.fontSize * 0.5);
-      const bottom = metrics.actualBoundingBoxDescent || bottomGridConfig.fontSize * 0.18;
-      const pad = bottomGridConfig.fontSize * 0.3;
-      const width = Math.ceil(right - left + pad * 2);
-      const height = Math.ceil(bottom - top + pad * 2);
-      const offscreen = document.createElement("canvas");
-      offscreen.width = Math.max(1, Math.ceil(width * state.dpr));
-      offscreen.height = Math.max(1, Math.ceil(height * state.dpr));
-      const octx = offscreen.getContext("2d");
-      octx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-      octx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
-      octx.textAlign = "center";
-      octx.textBaseline = "middle";
-      octx.lineJoin = "miter";
-      octx.lineCap = "square";
-
-      if (solid) {
-        octx.fillStyle = color;
-        octx.fillText(letter, width * 0.5, height * 0.5);
-      } else {
-        octx.strokeStyle = color;
-        octx.lineWidth = bottomGridConfig.ghostLineWidth;
-        octx.strokeText(letter, width * 0.5, height * 0.5);
-      }
-
-      const cached = { canvas: offscreen, width, height };
-      bottomGlyphCache.set(key, cached);
       return cached;
     }
 
@@ -590,94 +545,6 @@ export default function TraceDream() {
       return anchors;
     }
 
-    function buildBottomGhostGrid() {
-      const rows = ["NO-ONE", "SHOTS"];
-      const videoWidth = state.width * 0.95;
-      const videoAspect = state.bottomVideo?.aspect || 16 / 9;
-      const videoHeight = videoWidth / Math.max(0.1, videoAspect);
-      const rowGap = videoHeight * 0.35;
-      const baseY = state.bottomSectionStart + state.height * 0.54 - rowGap * 0.5;
-      const stamps = [];
-      const rowStamps = [];
-      rows.forEach((row, rowIndex) => {
-        const chars = Array.from(row).filter((char) => char !== " ");
-        const span = state.width * 0.8;
-        const startX = state.width * 0.5 - span * 0.5;
-        const currentRow = [];
-        chars.forEach((char, index) => {
-          const x = chars.length <= 1 ? state.width * 0.5 : startX + (span * index) / (chars.length - 1);
-          const stamp = {
-            x,
-            y: baseY + rowIndex * rowGap,
-            letter: char,
-            rowIndex,
-            warpPhase: getWarpPhase(x, baseY + rowIndex * rowGap),
-          };
-          stamps.push(stamp);
-          currentRow.push(stamp);
-        });
-        rowStamps.push(currentRow);
-      });
-
-      const segments = [];
-      let totalPathLength = 0;
-      rowStamps.forEach((row, rowIndex) => {
-        const distances = [];
-        let rowLength = 0;
-        for (let i = 0; i < row.length - 1; i += 1) {
-          const distance = Math.hypot(row[i + 1].x - row[i].x, row[i + 1].y - row[i].y);
-          distances.push(distance);
-          rowLength += distance;
-        }
-
-        let rowCursor = 0;
-        for (let i = 0; i < row.length - 1; i += 1) {
-          const from = row[i];
-          const to = row[i + 1];
-          const distance = distances[i];
-          const ghostCount = clamp(Math.round(distance / Math.max(1, state.sampleDistance)), 24, Math.max(24, state.maxTrail));
-          const ghosts = [];
-          const direction = i % 2 === 0 ? 1 : -1;
-          for (let j = 0; j < ghostCount; j += 1) {
-            const t = ghostCount === 1 ? 0 : j / (ghostCount - 1);
-            const arch = Math.sin(t * Math.PI) * bottomGridConfig.curvePull;
-            const x = lerp(from.x, to.x, t);
-            const y = lerp(from.y, to.y, t) - arch * direction;
-            const letter = t >= 0.5 ? to.letter : from.letter;
-            ghosts.push({
-              x,
-              y,
-              letter,
-              t,
-              rowIndex,
-              warpPhase: getWarpPhase(x, y),
-            });
-          }
-          segments.push({
-            from,
-            to,
-            ghosts,
-            rowIndex,
-            start: rowLength > 0 ? rowCursor / rowLength : 0,
-            end: rowLength > 0 ? (rowCursor + distance) / rowLength : 1,
-          });
-          rowCursor += distance;
-        }
-
-        row.forEach((stamp, index) => {
-          if (index === 0 || rowLength <= 0) {
-            stamp.pathProgress = 0;
-            return;
-          }
-          const distanceToStamp = distances.slice(0, index).reduce((sum, distance) => sum + distance, 0);
-          stamp.pathProgress = distanceToStamp / rowLength;
-        });
-        totalPathLength += rowLength;
-      });
-
-      return { stamps, segments, pathLength: totalPathLength };
-    }
-
     function getBottomSectionScreenY() {
       return state.bottomSectionStart - state.scrollY + state.height * 0.18;
     }
@@ -779,10 +646,10 @@ export default function TraceDream() {
 
     function rebuildLayout() {
       glyphCache.clear();
-      bottomGlyphCache.clear();
+      bottomGhostRenderer.clearCache();
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
-      const bottomGrid = buildBottomGhostGrid();
+      const bottomGrid = bottomGhostRenderer.build();
       state.bottomGhostGrid = bottomGrid.stamps;
       state.bottomGhostSegments = bottomGrid.segments;
       state.bottomGhostPathLength = bottomGrid.pathLength;
@@ -1098,95 +965,6 @@ export default function TraceDream() {
       });
     }
 
-    function getBottomRowProgress(trailProgress, rowIndex) {
-      if (rowIndex === 0) return trailProgress;
-      const delay = clamp(state.bottomLineStagger / 3, 0, 0.45);
-      return clamp((trailProgress - delay) / Math.max(0.0001, 1 - delay), 0, 1);
-    }
-
-    function getBottomDrawProgress(rowProgress) {
-      return clamp(rowProgress / 0.92, 0, 1);
-    }
-
-    function drawBottomGlyph(stamp, screenY, solid, index, total, opacity) {
-      const { canvas: glyphCanvas, width, height } = getBottomGlyphCanvas(stamp.letter, solid);
-      const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
-      const stripHeight = 1;
-      const basePhase = (stamp.warpPhase || 0) + state.heroWarpPhase;
-      const warpStrength = solid ? 0.55 : 0.72 + fade * 0.28;
-
-      bottomCtx.save();
-      bottomCtx.translate(stamp.x, screenY);
-      bottomCtx.translate(-width * 0.5, -height * 0.5);
-      bottomCtx.globalAlpha = opacity;
-
-      for (let y = 0; y < height; y += stripHeight) {
-        const sliceH = Math.min(stripHeight, height - y);
-        const yNorm = y / height;
-        const bendA = Math.sin(yNorm * Math.PI * 2 * state.warpFrequency + basePhase);
-        const bendB = Math.cos(yNorm * Math.PI * state.warpFrequency * 0.65 - basePhase * 0.7);
-        const bend = (bendA * 0.72 + bendB * 0.28) * state.warpAmount * warpStrength;
-        bottomCtx.drawImage(glyphCanvas, 0, y * state.dpr, glyphCanvas.width, sliceH * state.dpr, bend, y, width, sliceH + 2);
-      }
-
-      bottomCtx.restore();
-    }
-
-    function drawBottomGhostGrid() {
-      if (!state.bottomGhostGrid.length) return;
-      const progress = bottomAnimation.progress;
-      if (progress <= 0.001) return;
-      const trailProgress = clamp(progress / 0.82, 0, 1);
-      const gridWorldCenterY = state.bottomSectionStart + state.height * 0.54;
-      const frame = getBottomVideoFrame();
-      const textCenterY = frame.y;
-
-      bottomCtx.save();
-
-      state.bottomGhostSegments.forEach((segment) => {
-        const rowProgress = getBottomRowProgress(trailProgress, segment.rowIndex);
-        const drawProgress = getBottomDrawProgress(rowProgress);
-        const segmentProgress = clamp((drawProgress - segment.start) / Math.max(0.0001, segment.end - segment.start), 0, 1);
-        const segmentEase = heroDismissEase(segmentProgress);
-        const visibleCount = Math.floor(segment.ghosts.length * segmentEase);
-        for (let i = 0; i < visibleCount; i += 1) {
-          const ghost = segment.ghosts[i];
-          const screenY = textCenterY + (ghost.y - gridWorldCenterY);
-          if (screenY < -bottomGridConfig.fontSize * 1.5 || screenY > state.height + bottomGridConfig.fontSize * 1.5) continue;
-          const fade = visibleCount <= 1 ? 1 : 1 - i / Math.max(1, visibleCount - 1);
-          drawBottomGlyph(ghost, screenY, false, i, Math.max(visibleCount, 1), segmentEase * bottomGridConfig.ghostOpacity * (0.22 + fade * 0.78));
-        }
-      });
-
-      state.bottomGhostGrid.forEach((stamp, stampIndex) => {
-        const rowProgress = getBottomRowProgress(trailProgress, stamp.rowIndex);
-        const drawProgress = getBottomDrawProgress(rowProgress);
-        const stampRevealStart = Math.max(0, stamp.pathProgress - 0.08);
-        const stampReveal = clamp((drawProgress - stampRevealStart) / 0.08, 0, 1);
-        if (stampReveal <= 0.001) return;
-        const stampEased = heroDismissEase(stampReveal);
-        const screenY = textCenterY + (stamp.y - gridWorldCenterY);
-        if (screenY < -bottomGridConfig.fontSize * 1.5 || screenY > state.height + bottomGridConfig.fontSize * 1.5) return;
-        drawBottomGlyph(stamp, screenY, false, stampIndex, state.bottomGhostGrid.length, stampEased * bottomGridConfig.ghostOpacity * 0.62);
-        drawBottomGlyph(stamp, screenY, true, stampIndex, state.bottomGhostGrid.length, stampEased);
-      });
-
-      if (progress > 0.98) {
-        bottomCtx.save();
-        bottomCtx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
-        bottomCtx.textAlign = "center";
-        bottomCtx.textBaseline = "middle";
-        bottomCtx.fillStyle = bottomGridConfig.fillColor;
-        bottomCtx.globalAlpha = 1;
-        state.bottomGhostGrid.forEach((stamp) => {
-          const screenY = textCenterY + (stamp.y - gridWorldCenterY);
-          bottomCtx.fillText(stamp.letter, stamp.x, screenY);
-        });
-        bottomCtx.restore();
-      }
-      bottomCtx.restore();
-    }
-
     function render() {
       const now = performance.now();
       if (!state.lastFrameTime) state.lastFrameTime = now;
@@ -1280,7 +1058,7 @@ export default function TraceDream() {
           depth: reveal.depth,
         });
       }
-      drawBottomGhostGrid();
+      bottomGhostRenderer.draw();
     }
 
     function onScroll() {
@@ -1350,7 +1128,7 @@ export default function TraceDream() {
       inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
       rebuildBtn.removeEventListener("click", rebuildLayout);
       glyphCache.clear();
-      bottomGlyphCache.clear();
+      bottomGhostRenderer.clearCache();
       state.portalImages.forEach((item) => {
         item.mesh?.parent?.remove(item.mesh);
         item.mesh?.geometry?.dispose();

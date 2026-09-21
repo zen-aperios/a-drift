@@ -40,7 +40,8 @@ body {
 }
 
 .trace-media-canvas,
-.trace-canvas {
+.trace-canvas,
+.bottom-ghost-canvas {
   position: fixed;
   inset: 0;
   display: block;
@@ -60,6 +61,12 @@ body {
 
 .trace-media-canvas--front {
   z-index: 3;
+}
+
+.bottom-ghost-canvas {
+  z-index: 6;
+  pointer-events: none;
+  mix-blend-mode: difference;
 }
 
 .controls--shader {

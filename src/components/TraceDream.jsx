@@ -12,6 +12,7 @@ import { applyPortalLayout } from "./portalLayout.js";
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 
 const LETTERS = "APERIOS".split("");
+const BOTTOM_VIDEO_URL = new URL("../../logofolio 2026-aperios-design.mp4", import.meta.url).href;
 
 function hexToRgba(hex, alpha) {
   const safe = hex.replace("#", "");
@@ -25,6 +26,7 @@ function hexToRgba(hex, alpha) {
 
 export default function TraceDream() {
   const canvasRef = useRef(null);
+  const bottomCanvasRef = useRef(null);
   const mediaBackCanvasRef = useRef(null);
   const mediaFrontCanvasRef = useRef(null);
   const spacerRef = useRef(null);
@@ -32,16 +34,18 @@ export default function TraceDream() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const bottomCanvas = bottomCanvasRef.current;
     const mediaBackCanvas = mediaBackCanvasRef.current;
     const mediaFrontCanvas = mediaFrontCanvasRef.current;
     const scrollSpacer = spacerRef.current;
-    if (!canvas || !mediaBackCanvas || !mediaFrontCanvas || !scrollSpacer) return undefined;
+    if (!canvas || !bottomCanvas || !mediaBackCanvas || !mediaFrontCanvas || !scrollSpacer) return undefined;
 
     document.body.style.overflowX = "hidden";
     document.body.style.overflowY = "auto";
     window.scrollTo({ top: 0, behavior: "instant" });
 
     const ctx = canvas.getContext("2d");
+    const bottomCtx = bottomCanvas.getContext("2d");
     const mediaBackRenderer = createMediaRenderer(mediaBackCanvas);
     const mediaFrontRenderer = createMediaRenderer(mediaFrontCanvas);
     const mediaBackScene = new THREE.Scene();
@@ -52,6 +56,16 @@ export default function TraceDream() {
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     const glyphCache = new Map();
+    const bottomGlyphCache = new Map();
+    const bottomGridConfig = {
+      fontSize: 116,
+      maxTrail: 120,
+      curvePull: 84,
+      ghostOpacity: 0.58,
+      ghostLineWidth: 1,
+      ghostColor: "#ffffff",
+      fillColor: "#ffffff",
+    };
     let cancelled = false;
     const state = {
       width: 0,
@@ -78,11 +92,18 @@ export default function TraceDream() {
       segments: [],
       heroChars: [],
       portalImages: [],
+      bottomGhostGrid: [],
+      bottomGhostSegments: [],
+      bottomGhostPathLength: 0,
+      bottomVideo: null,
+      bottomSectionStart: 0,
+      bottomSectionHeight: 0,
       landedAnchors: [],
       anchorReveals: [],
       totalHeight: 0,
       drawProgress: 0,
       scrollY: 0,
+      rawScrollY: 0,
       portalRevealStart: 93,
       portalRevealDistance: 68,
       portalRevealDuration: 1.3,
@@ -99,11 +120,16 @@ export default function TraceDream() {
       portalShaderZoom: 0,
       portalDrift: 90,
       portalParallax: 0.2,
+      bottomLineStagger: 0.3,
       hasScrolled: false,
       heroDismiss: 0,
       heroWarpPhase: 0,
       heroWarpSpeed: 0.0012,
       lastFrameTime: 0,
+    };
+    const bottomAnimation = {
+      progress: 0,
+      started: false,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
 
@@ -139,6 +165,7 @@ export default function TraceDream() {
     const portalShaderZoomRange = q("#portalShaderZoomRange");
     const portalDriftRange = q("#portalDriftRange");
     const portalParallaxRange = q("#portalParallaxRange");
+    const bottomLineStaggerRange = q("#bottomLineStaggerRange");
     let letters = LETTERS.slice();
 
     function setText(id, value) {
@@ -172,6 +199,7 @@ export default function TraceDream() {
       setText("portalShaderZoomVal", state.portalShaderZoom.toFixed(3));
       setText("portalDriftVal", `${Math.round(state.portalDrift)}px`);
       setText("portalParallaxVal", state.portalParallax.toFixed(3));
+      setText("bottomLineStaggerVal", `${state.bottomLineStagger.toFixed(2)}s`);
     }
 
     function syncControls() {
@@ -211,6 +239,7 @@ export default function TraceDream() {
       state.portalShaderZoom = parseFloat(portalShaderZoomRange.value);
       state.portalDrift = parseFloat(portalDriftRange.value);
       state.portalParallax = parseFloat(portalParallaxRange.value);
+      state.bottomLineStagger = parseFloat(bottomLineStaggerRange.value);
       document.body.style.background = state.bgColor;
       syncLabels();
     }
@@ -227,9 +256,10 @@ export default function TraceDream() {
       return { left, right, top, bottom };
     }
 
-    function getGlyphCanvas(letter, solid) {
+    function getGlyphCanvas(letter, solid, overrideColor) {
+      const color = overrideColor || (solid ? state.fillColor : state.ghostColor);
       const key = `${letter}|${solid ? "fill" : "stroke"}|${state.fontSize}|${state.ghostLineWidth}|${
-        solid ? state.fillColor : state.ghostColor
+        color
       }`;
       if (glyphCache.has(key)) return glyphCache.get(key);
 
@@ -252,16 +282,60 @@ export default function TraceDream() {
       const drawX = width * 0.5;
       const drawY = height * 0.5;
       if (solid) {
-        octx.fillStyle = state.fillColor;
+        octx.fillStyle = color;
         octx.fillText(letter, drawX, drawY);
       } else {
-        octx.strokeStyle = state.ghostColor;
+        octx.strokeStyle = color;
         octx.lineWidth = state.ghostLineWidth;
         octx.strokeText(letter, drawX, drawY);
       }
 
       const cached = { canvas: offscreen, width, height };
       glyphCache.set(key, cached);
+      return cached;
+    }
+
+    function getBottomGlyphCanvas(letter, solid) {
+      const color = solid ? bottomGridConfig.fillColor : bottomGridConfig.ghostColor;
+      const key = `${letter}|${solid ? "fill" : "stroke"}|${bottomGridConfig.fontSize}|${bottomGridConfig.ghostLineWidth}|${color}`;
+      if (bottomGlyphCache.has(key)) return bottomGlyphCache.get(key);
+
+      bottomCtx.save();
+      bottomCtx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
+      bottomCtx.textAlign = "center";
+      bottomCtx.textBaseline = "middle";
+      const metrics = bottomCtx.measureText(letter);
+      bottomCtx.restore();
+
+      const left = -(metrics.actualBoundingBoxLeft || bottomGridConfig.fontSize * 0.28);
+      const right = metrics.actualBoundingBoxRight || bottomGridConfig.fontSize * 0.28;
+      const top = -(metrics.actualBoundingBoxAscent || bottomGridConfig.fontSize * 0.5);
+      const bottom = metrics.actualBoundingBoxDescent || bottomGridConfig.fontSize * 0.18;
+      const pad = bottomGridConfig.fontSize * 0.3;
+      const width = Math.ceil(right - left + pad * 2);
+      const height = Math.ceil(bottom - top + pad * 2);
+      const offscreen = document.createElement("canvas");
+      offscreen.width = Math.max(1, Math.ceil(width * state.dpr));
+      offscreen.height = Math.max(1, Math.ceil(height * state.dpr));
+      const octx = offscreen.getContext("2d");
+      octx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      octx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
+      octx.textAlign = "center";
+      octx.textBaseline = "middle";
+      octx.lineJoin = "miter";
+      octx.lineCap = "square";
+
+      if (solid) {
+        octx.fillStyle = color;
+        octx.fillText(letter, width * 0.5, height * 0.5);
+      } else {
+        octx.strokeStyle = color;
+        octx.lineWidth = bottomGridConfig.ghostLineWidth;
+        octx.strokeText(letter, width * 0.5, height * 0.5);
+      }
+
+      const cached = { canvas: offscreen, width, height };
+      bottomGlyphCache.set(key, cached);
       return cached;
     }
 
@@ -325,6 +399,43 @@ export default function TraceDream() {
         return item;
       });
       buildPortalLayout();
+    }
+
+    function loadBottomVideo() {
+      const video = document.createElement("video");
+      video.src = BOTTOM_VIDEO_URL;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.crossOrigin = "anonymous";
+
+      const texture = new THREE.VideoTexture(video);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      const material = createPortalMaterial(texture, noiseTexture, state);
+      const mesh = createPortalMesh(material);
+      mediaBackScene.add(mesh);
+
+      state.bottomVideo = {
+        video,
+        texture,
+        material,
+        mesh,
+        aspect: 16 / 9,
+        reveal: {
+          progress: 0,
+          target: 0,
+        },
+      };
+
+      video.addEventListener("loadedmetadata", () => {
+        if (cancelled) return;
+        state.bottomVideo.aspect = (video.videoWidth || 16) / Math.max(1, video.videoHeight || 9);
+      });
+
+      video.play().catch(() => {});
     }
 
     function getStampBounds(stamp) {
@@ -469,9 +580,147 @@ export default function TraceDream() {
         anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true));
       }
 
-      state.totalHeight = topOffset * 2 + gap * Math.max(0, letters.length - 1) + state.height * 0.8;
+      const lastAnchorY = anchors[anchors.length - 1]?.y || topOffset + gap * Math.max(0, letters.length - 1);
+      state.bottomSectionStart = lastAnchorY + 120;
+      const bottomVideoHeight = (state.width * 0.95) / (state.bottomVideo?.aspect || 16 / 9);
+      const bottomMargin = 48;
+      state.bottomSectionHeight = Math.max(state.height * 1.65, bottomVideoHeight + state.height * 0.8 + bottomMargin);
+      state.totalHeight = state.bottomSectionStart + state.bottomSectionHeight + bottomMargin;
       scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
+    }
+
+    function buildBottomGhostGrid() {
+      const rows = ["NO-ONE", "SHOTS"];
+      const videoWidth = state.width * 0.95;
+      const videoAspect = state.bottomVideo?.aspect || 16 / 9;
+      const videoHeight = videoWidth / Math.max(0.1, videoAspect);
+      const rowGap = videoHeight * 0.35;
+      const baseY = state.bottomSectionStart + state.height * 0.54 - rowGap * 0.5;
+      const stamps = [];
+      const rowStamps = [];
+      rows.forEach((row, rowIndex) => {
+        const chars = Array.from(row).filter((char) => char !== " ");
+        const span = state.width * 0.8;
+        const startX = state.width * 0.5 - span * 0.5;
+        const currentRow = [];
+        chars.forEach((char, index) => {
+          const x = chars.length <= 1 ? state.width * 0.5 : startX + (span * index) / (chars.length - 1);
+          const stamp = {
+            x,
+            y: baseY + rowIndex * rowGap,
+            letter: char,
+            rowIndex,
+            warpPhase: getWarpPhase(x, baseY + rowIndex * rowGap),
+          };
+          stamps.push(stamp);
+          currentRow.push(stamp);
+        });
+        rowStamps.push(currentRow);
+      });
+
+      const segments = [];
+      let totalPathLength = 0;
+      rowStamps.forEach((row, rowIndex) => {
+        const distances = [];
+        let rowLength = 0;
+        for (let i = 0; i < row.length - 1; i += 1) {
+          const distance = Math.hypot(row[i + 1].x - row[i].x, row[i + 1].y - row[i].y);
+          distances.push(distance);
+          rowLength += distance;
+        }
+
+        let rowCursor = 0;
+        for (let i = 0; i < row.length - 1; i += 1) {
+          const from = row[i];
+          const to = row[i + 1];
+          const distance = distances[i];
+          const ghostCount = clamp(Math.round(distance / Math.max(1, state.sampleDistance)), 24, Math.max(24, state.maxTrail));
+          const ghosts = [];
+          const direction = i % 2 === 0 ? 1 : -1;
+          for (let j = 0; j < ghostCount; j += 1) {
+            const t = ghostCount === 1 ? 0 : j / (ghostCount - 1);
+            const arch = Math.sin(t * Math.PI) * bottomGridConfig.curvePull;
+            const x = lerp(from.x, to.x, t);
+            const y = lerp(from.y, to.y, t) - arch * direction;
+            const letter = t >= 0.5 ? to.letter : from.letter;
+            ghosts.push({
+              x,
+              y,
+              letter,
+              t,
+              rowIndex,
+              warpPhase: getWarpPhase(x, y),
+            });
+          }
+          segments.push({
+            from,
+            to,
+            ghosts,
+            rowIndex,
+            start: rowLength > 0 ? rowCursor / rowLength : 0,
+            end: rowLength > 0 ? (rowCursor + distance) / rowLength : 1,
+          });
+          rowCursor += distance;
+        }
+
+        row.forEach((stamp, index) => {
+          if (index === 0 || rowLength <= 0) {
+            stamp.pathProgress = 0;
+            return;
+          }
+          const distanceToStamp = distances.slice(0, index).reduce((sum, distance) => sum + distance, 0);
+          stamp.pathProgress = distanceToStamp / rowLength;
+        });
+        totalPathLength += rowLength;
+      });
+
+      return { stamps, segments, pathLength: totalPathLength };
+    }
+
+    function getBottomSectionScreenY() {
+      return state.bottomSectionStart - state.scrollY + state.height * 0.18;
+    }
+
+    function getBottomVideoBaseScreenY() {
+      return state.bottomSectionStart + state.height * 0.54 - state.scrollY + state.height * 0.18;
+    }
+
+    function getBottomVideoBaseRawScreenY() {
+      return state.bottomSectionStart + state.height * 0.54 - state.rawScrollY + state.height * 0.18;
+    }
+
+    function startBottomAnimation() {
+      if (bottomAnimation.started) return;
+      bottomAnimation.started = true;
+      gsap.killTweensOf(bottomAnimation);
+      gsap.fromTo(
+        bottomAnimation,
+        { progress: 0 },
+        {
+          progress: 1,
+          duration: 3.2,
+          ease: "none",
+          overwrite: "auto",
+        }
+      );
+    }
+
+    function updateBottomAnimation() {
+      const videoScreenY = getBottomVideoBaseRawScreenY();
+      const shouldStart = videoScreenY < state.height * 0.9 && videoScreenY > -state.height * 0.35;
+      const shouldReset = videoScreenY > state.height * 1.08;
+
+      if (shouldReset && bottomAnimation.started) {
+        bottomAnimation.started = false;
+        gsap.killTweensOf(bottomAnimation);
+        bottomAnimation.progress = 0;
+        return;
+      }
+
+      if (shouldStart && !bottomAnimation.started) {
+        startBottomAnimation();
+      }
     }
 
     function sampleCurve(start, end, bendIndex) {
@@ -493,11 +742,14 @@ export default function TraceDream() {
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - state.height);
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
-      state.hasScrolled = targetScroll > 2;
+      const isReturningToHero = targetScroll <= 2 && state.heroDismiss > 0.001;
+      state.rawScrollY = targetScroll;
+      if (targetScroll > 2) state.hasScrolled = true;
 
       if (immediate) {
         gsap.set(state, {
           scrollY: targetScroll,
+          rawScrollY: targetScroll,
           drawProgress: progress,
           heroDismiss: targetScroll > 2 ? 1 : 0,
         });
@@ -514,16 +766,26 @@ export default function TraceDream() {
 
       gsap.to(state, {
         heroDismiss: targetScroll > 2 ? 1 : 0,
-        duration: 1.8,
-        ease: "power4.out",
+        duration: isReturningToHero ? 2.1 : 2.15,
+        ease: isReturningToHero ? "power2.out" : "power4.out",
         overwrite: "auto",
+        onComplete: () => {
+          if ((window.scrollY || window.pageYOffset || 0) <= 2 && state.heroDismiss <= 0.001) {
+            state.hasScrolled = false;
+          }
+        },
       });
     }
 
     function rebuildLayout() {
       glyphCache.clear();
+      bottomGlyphCache.clear();
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
+      const bottomGrid = buildBottomGhostGrid();
+      state.bottomGhostGrid = bottomGrid.stamps;
+      state.bottomGhostSegments = bottomGrid.segments;
+      state.bottomGhostPathLength = bottomGrid.pathLength;
       state.landedAnchors = state.anchors.map((_, index) => index === 0);
       state.anchorReveals = state.anchors.map((_, index) => ({
         opacity: index === 0 ? 1 : 0,
@@ -573,7 +835,10 @@ export default function TraceDream() {
       state.height = window.innerHeight;
       canvas.width = Math.round(state.width * state.dpr);
       canvas.height = Math.round(state.height * state.dpr);
+      bottomCanvas.width = Math.round(state.width * state.dpr);
+      bottomCanvas.height = Math.round(state.height * state.dpr);
       ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      bottomCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
       [mediaBackRenderer, mediaFrontRenderer].forEach((renderer) => {
         renderer.setPixelRatio(state.dpr);
         renderer.setSize(state.width, state.height, false);
@@ -588,7 +853,7 @@ export default function TraceDream() {
     }
 
     function drawWarpedGlyph(stamp, solid, index, total, options = {}) {
-      const { canvas: glyphCanvas, width, height } = getGlyphCanvas(stamp.letter, solid);
+      const { canvas: glyphCanvas, width, height } = getGlyphCanvas(stamp.letter, solid, options.color);
       const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
       const opacity = options.opacity ?? (solid ? 1 : Math.max(0, state.ghostOpacity * (0.22 + fade * 0.78)));
       const warpStrength = options.warpStrength ?? (0.28 + fade * 0.72);
@@ -642,11 +907,11 @@ export default function TraceDream() {
       if (options.opacity !== undefined) ctx.globalAlpha = options.opacity;
 
       if (solid) {
-        ctx.fillStyle = state.fillColor;
+        ctx.fillStyle = options.color || state.fillColor;
         ctx.fillText(stamp.letter, 0, 0);
       } else {
         const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
-        ctx.strokeStyle = hexToRgba(state.ghostColor, state.ghostOpacity * (0.22 + fade * 0.78));
+        ctx.strokeStyle = options.color ? hexToRgba(options.color, 1) : hexToRgba(state.ghostColor, state.ghostOpacity * (0.22 + fade * 0.78));
         ctx.lineWidth = state.ghostLineWidth;
         ctx.strokeText(stamp.letter, 0, 0);
       }
@@ -699,6 +964,78 @@ export default function TraceDream() {
       });
     }
 
+    function syncPortalMaterial(item, width, height, progress, timeOffset = 0) {
+      item.material.uniforms.uProgress.value = progress;
+      item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
+      item.material.uniforms.uTime.value = state.heroWarpPhase + timeOffset;
+      item.material.uniforms.uNoiseScale.value = state.portalShaderNoiseScale;
+      item.material.uniforms.uNoiseSpeed.value = state.portalShaderNoiseSpeed;
+      item.material.uniforms.uSoftness.value = state.portalShaderSoftness;
+      item.material.uniforms.uNoiseAmount.value = state.portalShaderNoiseAmount;
+      item.material.uniforms.uFlowX.value = state.portalShaderFlowX;
+      item.material.uniforms.uFlowY.value = state.portalShaderFlowY;
+      item.material.uniforms.uFlowNoiseY.value = state.portalShaderFlowNoiseY;
+      item.material.uniforms.uZoom.value = state.portalShaderZoom;
+      item.material.uniforms.uCanvasResolution.value.set(width, height);
+    }
+
+    function drawBottomVideo() {
+      const item = state.bottomVideo;
+      if (!item?.mesh || !item.material) return false;
+
+      const rawScreenY = getBottomVideoBaseScreenY();
+      const revealStartY = state.height * (state.portalRevealStart / 100);
+      const revealDistance = state.height * (state.portalRevealDistance / 100);
+      const revealTarget = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);
+      if (revealTarget > 0.02) startBottomAnimation();
+      setPortalReveal(item, revealTarget);
+      const progress = clamp(item.reveal.progress, 0, 1);
+
+      item.mesh.visible = progress > 0.001;
+      if (!item.mesh.visible) return false;
+
+      const eased = heroDismissEase(progress);
+      const frame = getBottomVideoFrame();
+
+      item.mesh.position.set(frame.x, state.height - frame.y, 0);
+      item.mesh.scale.set(frame.width, frame.height, 1);
+      syncPortalMaterial(item, frame.width, frame.height, eased, 1.7);
+      item.material.uniforms.uImageResolution.value.set(item.video.videoWidth || 16, item.video.videoHeight || 9);
+      return true;
+    }
+
+    function getBottomVideoFrame() {
+      const item = state.bottomVideo;
+      const videoReveal = item?.reveal?.progress ?? 0;
+      const videoEased = heroDismissEase(clamp(videoReveal, 0, 1));
+      const width = state.width * 0.95;
+      const height = width / Math.max(0.1, item?.aspect || 16 / 9);
+      const slideY = (1 - videoEased) * 64;
+      const rawScreenY = getBottomVideoBaseScreenY();
+      const slowScrollDrift = Math.sin(state.rawScrollY * 0.002 + 4.2) * state.portalDrift;
+      const parallaxDrift = (rawScreenY - state.height * 0.5) * state.portalParallax;
+      return {
+        x: state.width * 0.5,
+        y: rawScreenY + slowScrollDrift + parallaxDrift + slideY,
+        width,
+        height,
+        reveal: videoEased,
+      };
+    }
+
+    function drawBottomVideoShade() {
+      const progress = bottomAnimation.progress;
+      if (progress <= 0.001) return;
+      const frame = getBottomVideoFrame();
+      const trailProgress = clamp(progress / 0.82, 0, 1);
+      const opacity = 0.28 * frame.reveal * heroDismissEase(clamp(trailProgress, 0, 1));
+      if (opacity <= 0.001) return;
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+      ctx.fillRect(frame.x - frame.width * 0.5, frame.y - frame.height * 0.5, frame.width, frame.height);
+      ctx.restore();
+    }
+
     function drawPortalImages() {
       let hasVisibleBackPortal = false;
       let hasVisibleFrontPortal = false;
@@ -734,25 +1071,15 @@ export default function TraceDream() {
           item.mesh.visible = true;
           item.mesh.position.set(item.x, state.height - (screenY + slideY), 0);
           item.mesh.scale.set(width, height, 1);
-          item.material.uniforms.uProgress.value = eased;
-          item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
-          item.material.uniforms.uTime.value = state.heroWarpPhase + item.index * 0.35;
-          item.material.uniforms.uNoiseScale.value = state.portalShaderNoiseScale;
-          item.material.uniforms.uNoiseSpeed.value = state.portalShaderNoiseSpeed;
-          item.material.uniforms.uSoftness.value = state.portalShaderSoftness;
-          item.material.uniforms.uNoiseAmount.value = state.portalShaderNoiseAmount;
-          item.material.uniforms.uFlowX.value = state.portalShaderFlowX;
-          item.material.uniforms.uFlowY.value = state.portalShaderFlowY;
-          item.material.uniforms.uFlowNoiseY.value = state.portalShaderFlowNoiseY;
-          item.material.uniforms.uZoom.value = state.portalShaderZoom;
-          item.material.uniforms.uCanvasResolution.value.set(width, height);
+          syncPortalMaterial(item, width, height, eased, item.index * 0.35);
           if (item.texture?.image) {
             item.material.uniforms.uImageResolution.value.set(item.texture.image.width || 1, item.texture.image.height || 1);
           }
         }
 
       });
-      if (hasVisibleBackPortal) mediaBackRenderer.render(mediaBackScene, mediaCamera);
+      const hasBottomVideo = drawBottomVideo();
+      if (hasVisibleBackPortal || hasBottomVideo) mediaBackRenderer.render(mediaBackScene, mediaCamera);
       if (hasVisibleFrontPortal) mediaFrontRenderer.render(mediaFrontScene, mediaCamera);
     }
 
@@ -771,19 +1098,110 @@ export default function TraceDream() {
       });
     }
 
+    function getBottomRowProgress(trailProgress, rowIndex) {
+      if (rowIndex === 0) return trailProgress;
+      const delay = clamp(state.bottomLineStagger / 3, 0, 0.45);
+      return clamp((trailProgress - delay) / Math.max(0.0001, 1 - delay), 0, 1);
+    }
+
+    function getBottomDrawProgress(rowProgress) {
+      return clamp(rowProgress / 0.92, 0, 1);
+    }
+
+    function drawBottomGlyph(stamp, screenY, solid, index, total, opacity) {
+      const { canvas: glyphCanvas, width, height } = getBottomGlyphCanvas(stamp.letter, solid);
+      const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
+      const stripHeight = 1;
+      const basePhase = (stamp.warpPhase || 0) + state.heroWarpPhase;
+      const warpStrength = solid ? 0.55 : 0.72 + fade * 0.28;
+
+      bottomCtx.save();
+      bottomCtx.translate(stamp.x, screenY);
+      bottomCtx.translate(-width * 0.5, -height * 0.5);
+      bottomCtx.globalAlpha = opacity;
+
+      for (let y = 0; y < height; y += stripHeight) {
+        const sliceH = Math.min(stripHeight, height - y);
+        const yNorm = y / height;
+        const bendA = Math.sin(yNorm * Math.PI * 2 * state.warpFrequency + basePhase);
+        const bendB = Math.cos(yNorm * Math.PI * state.warpFrequency * 0.65 - basePhase * 0.7);
+        const bend = (bendA * 0.72 + bendB * 0.28) * state.warpAmount * warpStrength;
+        bottomCtx.drawImage(glyphCanvas, 0, y * state.dpr, glyphCanvas.width, sliceH * state.dpr, bend, y, width, sliceH + 2);
+      }
+
+      bottomCtx.restore();
+    }
+
+    function drawBottomGhostGrid() {
+      if (!state.bottomGhostGrid.length) return;
+      const progress = bottomAnimation.progress;
+      if (progress <= 0.001) return;
+      const trailProgress = clamp(progress / 0.82, 0, 1);
+      const gridWorldCenterY = state.bottomSectionStart + state.height * 0.54;
+      const frame = getBottomVideoFrame();
+      const textCenterY = frame.y;
+
+      bottomCtx.save();
+
+      state.bottomGhostSegments.forEach((segment) => {
+        const rowProgress = getBottomRowProgress(trailProgress, segment.rowIndex);
+        const drawProgress = getBottomDrawProgress(rowProgress);
+        const segmentProgress = clamp((drawProgress - segment.start) / Math.max(0.0001, segment.end - segment.start), 0, 1);
+        const segmentEase = heroDismissEase(segmentProgress);
+        const visibleCount = Math.floor(segment.ghosts.length * segmentEase);
+        for (let i = 0; i < visibleCount; i += 1) {
+          const ghost = segment.ghosts[i];
+          const screenY = textCenterY + (ghost.y - gridWorldCenterY);
+          if (screenY < -bottomGridConfig.fontSize * 1.5 || screenY > state.height + bottomGridConfig.fontSize * 1.5) continue;
+          const fade = visibleCount <= 1 ? 1 : 1 - i / Math.max(1, visibleCount - 1);
+          drawBottomGlyph(ghost, screenY, false, i, Math.max(visibleCount, 1), segmentEase * bottomGridConfig.ghostOpacity * (0.22 + fade * 0.78));
+        }
+      });
+
+      state.bottomGhostGrid.forEach((stamp, stampIndex) => {
+        const rowProgress = getBottomRowProgress(trailProgress, stamp.rowIndex);
+        const drawProgress = getBottomDrawProgress(rowProgress);
+        const stampRevealStart = Math.max(0, stamp.pathProgress - 0.08);
+        const stampReveal = clamp((drawProgress - stampRevealStart) / 0.08, 0, 1);
+        if (stampReveal <= 0.001) return;
+        const stampEased = heroDismissEase(stampReveal);
+        const screenY = textCenterY + (stamp.y - gridWorldCenterY);
+        if (screenY < -bottomGridConfig.fontSize * 1.5 || screenY > state.height + bottomGridConfig.fontSize * 1.5) return;
+        drawBottomGlyph(stamp, screenY, false, stampIndex, state.bottomGhostGrid.length, stampEased * bottomGridConfig.ghostOpacity * 0.62);
+        drawBottomGlyph(stamp, screenY, true, stampIndex, state.bottomGhostGrid.length, stampEased);
+      });
+
+      if (progress > 0.98) {
+        bottomCtx.save();
+        bottomCtx.font = `900 ${bottomGridConfig.fontSize}px Helvetica, Arial, sans-serif`;
+        bottomCtx.textAlign = "center";
+        bottomCtx.textBaseline = "middle";
+        bottomCtx.fillStyle = bottomGridConfig.fillColor;
+        bottomCtx.globalAlpha = 1;
+        state.bottomGhostGrid.forEach((stamp) => {
+          const screenY = textCenterY + (stamp.y - gridWorldCenterY);
+          bottomCtx.fillText(stamp.letter, stamp.x, screenY);
+        });
+        bottomCtx.restore();
+      }
+      bottomCtx.restore();
+    }
+
     function render() {
       const now = performance.now();
       if (!state.lastFrameTime) state.lastFrameTime = now;
       const dt = now - state.lastFrameTime;
       state.lastFrameTime = now;
       state.heroWarpPhase += dt * state.heroWarpSpeed;
+      updateBottomAnimation();
       mediaBackRenderer.clear();
       mediaFrontRenderer.clear();
       ctx.clearRect(0, 0, state.width, state.height);
+      bottomCtx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
 
-      if (!state.hasScrolled) {
+      if (!state.hasScrolled && state.heroDismiss <= 0.001) {
         const topGhostOffsets = getTopGhostOffsets();
         for (let i = 0; i < ghostCount; i += 1) {
           if (state.ghosts[i]?.letter === state.anchors[0]?.letter) continue;
@@ -822,10 +1240,12 @@ export default function TraceDream() {
         }
       });
       drawPortalImages();
+      drawBottomVideoShade();
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0, progress: 1 };
-        if (i > 0 && !state.landedAnchors[i]) {
+        if (i > 0) {
+          const centerY = state.height * 0.5;
           const landingDistance = state.fontSize * 0.9;
           const scrubStartDistance = state.fontSize * 1.7;
           const nearestDistance = activeGhosts.reduce((nearest, ghost) => {
@@ -837,14 +1257,21 @@ export default function TraceDream() {
             0,
             1
           );
-          if (scrubProgress > reveal.progress) {
-            const easedScrub = heroDismissEase(scrubProgress);
-            reveal.progress = scrubProgress;
-            reveal.opacity = Math.max(reveal.opacity, easedScrub);
-            reveal.depth = Math.max(reveal.depth, -1 + easedScrub);
+          const centerProgress = clamp((centerY + scrubStartDistance - screenY) / Math.max(1, scrubStartDistance), 0, 1);
+          const targetProgress = Math.max(scrubProgress, centerProgress);
+
+          if (targetProgress >= 1) {
+            state.landedAnchors[i] = true;
+            triggerAnchorReveal(i);
+          } else {
+            if (reveal.active) gsap.killTweensOf(reveal);
+            reveal.active = false;
+            state.landedAnchors[i] = false;
+            reveal.progress += (targetProgress - reveal.progress) * 0.28;
+            const easedTarget = heroDismissEase(reveal.progress);
+            reveal.opacity = easedTarget;
+            reveal.depth = -1 + easedTarget;
           }
-          state.landedAnchors[i] = nearestDistance <= landingDistance || screenY <= state.height * 0.5;
-          if (state.landedAnchors[i]) triggerAnchorReveal(i);
         }
         if (i > 0 && !state.landedAnchors[i] && reveal.opacity <= 0.001) continue;
         drawStamp(state.anchors[i], true, i, state.anchors.length, {
@@ -853,6 +1280,7 @@ export default function TraceDream() {
           depth: reveal.depth,
         });
       }
+      drawBottomGhostGrid();
     }
 
     function onScroll() {
@@ -896,12 +1324,14 @@ export default function TraceDream() {
       portalShaderZoomRange,
       portalDriftRange,
       portalParallaxRange,
+      bottomLineStaggerRange,
     ];
 
     inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
     rebuildBtn.addEventListener("click", rebuildLayout);
     syncControls();
     loadPortalImages();
+    loadBottomVideo();
     gsap.ticker.add(render);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
@@ -912,18 +1342,30 @@ export default function TraceDream() {
       cancelled = true;
       gsap.ticker.remove(render);
       gsap.killTweensOf(state);
+      gsap.killTweensOf(bottomAnimation);
       state.portalImages.forEach((item) => gsap.killTweensOf(item.reveal));
+      if (state.bottomVideo) gsap.killTweensOf(state.bottomVideo.reveal);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
       inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
       rebuildBtn.removeEventListener("click", rebuildLayout);
       glyphCache.clear();
+      bottomGlyphCache.clear();
       state.portalImages.forEach((item) => {
         item.mesh?.parent?.remove(item.mesh);
         item.mesh?.geometry?.dispose();
         item.material?.dispose();
         item.texture?.dispose();
       });
+      if (state.bottomVideo) {
+        state.bottomVideo.video.pause();
+        state.bottomVideo.video.removeAttribute("src");
+        state.bottomVideo.video.load();
+        state.bottomVideo.mesh?.parent?.remove(state.bottomVideo.mesh);
+        state.bottomVideo.mesh?.geometry?.dispose();
+        state.bottomVideo.material?.dispose();
+        state.bottomVideo.texture?.dispose();
+      }
       noiseTexture.dispose();
       mediaBackRenderer.dispose();
       mediaFrontRenderer.dispose();
@@ -937,6 +1379,7 @@ export default function TraceDream() {
       <canvas ref={mediaBackCanvasRef} className="trace-media-canvas trace-media-canvas--back" />
       <canvas ref={canvasRef} className="trace-canvas" />
       <canvas ref={mediaFrontCanvasRef} className="trace-media-canvas trace-media-canvas--front" />
+      <canvas ref={bottomCanvasRef} className="bottom-ghost-canvas" />
       <div ref={spacerRef} className="trace-spacer" aria-hidden="true" />
       <button
         className="controls-toggle"
@@ -1044,6 +1487,8 @@ export default function TraceDream() {
           <input id="portalDriftRange" type="range" min="0" max="90" step="1" defaultValue="90" />
           <label htmlFor="portalParallaxRange">Parallax <span id="portalParallaxVal" /></label>
           <input id="portalParallaxRange" type="range" min="-0.2" max="0.2" step="0.005" defaultValue="0.2" />
+          <label htmlFor="bottomLineStaggerRange">Bottom Line Stagger <span id="bottomLineStaggerVal" /></label>
+          <input id="bottomLineStaggerRange" type="range" min="0" max="1.5" step="0.05" defaultValue="0.3" />
         </div>
       </aside>
     </section>

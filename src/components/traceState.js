@@ -5,6 +5,8 @@ export function createTraceState() {
     renderHeight: 0,
     traceCanvasTop: 0,
     traceCanvasHeight: 0,
+    mediaCanvasTop: 0,
+    mediaCanvasHeight: 0,
     dpr: 1,
     fontSize: 160,
     rowGapVh: 90,

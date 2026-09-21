@@ -39,7 +39,11 @@ export function createTraceSurfaceController({
       Math.max(0, state.rawScrollY - state.height * 0.5)
     );
     state.traceCanvasTop = nextTop;
+    state.mediaCanvasTop = nextTop;
+    state.mediaCanvasHeight = traceCanvasHeight;
     canvas.style.top = `${nextTop}px`;
+    mediaBackRenderer.domElement.style.top = `${nextTop}px`;
+    mediaFrontRenderer.domElement.style.top = `${nextTop}px`;
     ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
     ctx.clearRect(0, 0, state.width, state.traceCanvasHeight);
     ctx.translate(0, -nextTop);
@@ -69,6 +73,8 @@ export function createTraceSurfaceController({
     );
     state.traceCanvasTop = traceCanvasTop;
     state.traceCanvasHeight = traceCanvasHeight;
+    state.mediaCanvasTop = traceCanvasTop;
+    state.mediaCanvasHeight = traceCanvasHeight;
 
     if (canvas.width !== canvasWidth) canvas.width = canvasWidth;
     if (canvas.height !== Math.round(traceCanvasHeight * state.dpr)) canvas.height = Math.round(traceCanvasHeight * state.dpr);
@@ -92,12 +98,13 @@ export function createTraceSurfaceController({
 
     [mediaBackRenderer, mediaFrontRenderer].forEach((renderer) => {
       renderer.setPixelRatio(Math.min(state.dpr, 1.25));
-      renderer.setSize(state.width, renderHeight, false);
-      renderer.domElement.style.height = `${renderHeight}px`;
+      renderer.setSize(state.width, traceCanvasHeight, false);
+      renderer.domElement.style.top = `${traceCanvasTop}px`;
+      renderer.domElement.style.height = `${traceCanvasHeight}px`;
     });
     mediaCamera.left = 0;
     mediaCamera.right = state.width;
-    mediaCamera.top = renderHeight;
+    mediaCamera.top = traceCanvasHeight;
     mediaCamera.bottom = 0;
     mediaCamera.position.z = 10;
     mediaCamera.updateProjectionMatrix();

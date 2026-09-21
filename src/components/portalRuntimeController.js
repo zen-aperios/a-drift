@@ -54,7 +54,9 @@ export function createPortalRuntimeController({ state, gsap }) {
   }
 
   function getThreeDocumentY(documentY) {
-    return state.renderHeight - documentY;
+    const surfaceHeight = state.mediaCanvasHeight || state.renderHeight;
+    const surfaceTop = state.mediaCanvasTop || 0;
+    return surfaceHeight - (documentY - surfaceTop);
   }
 
   function getPortalItemDocumentFrame(item) {

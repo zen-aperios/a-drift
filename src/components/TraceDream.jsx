@@ -15,7 +15,7 @@ import { createDiagonalGhostRenderer } from "./diagonalGhostRenderer.js";
 import LogoCardSequence from "./LogoCardSequence.jsx";
 
 const LETTERS = "APERIOS".split("");
-const BOTTOM_VIDEO_URL = new URL("../../logofolio 2026-aperios-design.mp4", import.meta.url).href;
+const BOTTOM_VIDEO_URL = new URL("../../logofolio-web.mp4", import.meta.url).href;
 
 function hexToRgba(hex, alpha) {
   const safe = hex.replace("#", "");

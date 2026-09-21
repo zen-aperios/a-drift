@@ -396,7 +396,7 @@ export default function TraceDream() {
         for (let i = 0; i < ghostTotal; i += 1) {
           const t = ghostTotal === 1 ? 0 : i / (ghostTotal - 1);
           const point = segment.points[Math.round(t * (segment.points.length - 1))];
-          const letter = t > 0.82 ? segment.toLetter : segment.fromLetter;
+          const letter = t >= 0.5 ? segment.toLetter : segment.fromLetter;
           ghosts.push(createStamp(point.x, point.y, letter, false));
         }
         return {

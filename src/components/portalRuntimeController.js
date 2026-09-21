@@ -6,6 +6,15 @@ export function createPortalRuntimeController({ state, gsap }) {
     if (Math.abs(item.reveal.target - target) < 0.01) return;
     if (item.reveal.target === target) return;
     item.reveal.target = target;
+    if (item.useQuickReveal) {
+      item.revealQuickTo ||= gsap.quickTo(item.reveal, "progress", {
+        duration: state.portalRevealDuration,
+        ease: "power4.out",
+        overwrite: true,
+      });
+      item.revealQuickTo(target);
+      return;
+    }
     gsap.killTweensOf(item.reveal);
     gsap.to(item.reveal, {
       progress: target,

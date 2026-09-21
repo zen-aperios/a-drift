@@ -17,6 +17,28 @@ export function createBottomVideoRenderer({
   setPortalReveal,
   syncPortalMaterial,
 }) {
+  let lastScrollY = null;
+
+  function pauseFirefoxVideoDuringScroll(item) {
+    if (!useDomPortalImages) return;
+    const currentScrollY = state.rawScrollY;
+    const isMoving = lastScrollY !== null && Math.abs(currentScrollY - lastScrollY) > 0.5;
+    lastScrollY = currentScrollY;
+    if (!isMoving) return;
+
+    item.pausedForScroll = true;
+    if (!item.video.paused) item.video.pause();
+    if (item.scrollResumeTimer) clearTimeout(item.scrollResumeTimer);
+    item.scrollResumeTimer = setTimeout(() => {
+      item.scrollResumeTimer = 0;
+      const screenY = getBottomVideoBaseScreenY();
+      const inRange = screenY > -state.height * 1.5 && screenY < state.height * 2.5;
+      if (!inRange || !item.pausedForScroll || item.reveal.progress <= 0.001) return;
+      item.pausedForScroll = false;
+      item.video.play().catch(() => {});
+    }, 140);
+  }
+
   function getFrame() {
     const item = state.bottomVideo;
     const videoReveal = item?.reveal?.progress ?? 0;
@@ -38,6 +60,7 @@ export function createBottomVideoRenderer({
   function draw() {
     const item = state.bottomVideo;
     if (!item) return false;
+    pauseFirefoxVideoDuringScroll(item);
 
     const rawScreenY = getBottomVideoBaseScreenY();
     // Firefox uses the DOM fallback; avoid touching its media element when it
@@ -45,6 +68,7 @@ export function createBottomVideoRenderer({
     const isFarOffscreen = rawScreenY < -state.height * 1.5 || rawScreenY > state.height * 2.5;
     if (useDomPortalImages && isFarOffscreen) {
       setPortalReveal(item, 0);
+      if (!item.video.paused) item.video.pause();
       if (item.domStyle.display !== "none") {
         item.domStyle.display = "none";
         item.video.style.display = "none";
@@ -70,7 +94,7 @@ export function createBottomVideoRenderer({
       };
       setStyle("display", progress > 0.001 ? "block" : "none");
       if (progress <= 0.001) return false;
-      if (item.video.paused && performance.now() - item.lastPlayAttempt > 1000) {
+      if (!item.pausedForScroll && item.video.paused && performance.now() - item.lastPlayAttempt > 1000) {
         item.lastPlayAttempt = performance.now();
         item.video.play().catch(() => {});
       }

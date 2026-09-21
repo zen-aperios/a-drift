@@ -17,6 +17,9 @@ The highest-impact long-term optimization is to keep the document flow unchanged
 - Lenis and trace rendering share the GSAP ticker.
 - Portal shader uniforms and image layout inputs are cached when unchanged.
 - Firefox DOM media style writes are cached, and Firefox 2D contexts use desynchronized mode.
+- Firefox pauses the native video decoder while the video is far outside the viewport.
+- Firefox skips the unused WebGL media clear/render pass while using DOM media.
+- Firefox uses lighter two-pixel slices for the `NO-ONE / SHOTS` ghost renderer.
 
 ## Recommended Optimization Order
 

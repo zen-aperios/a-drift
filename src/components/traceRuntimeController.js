@@ -14,12 +14,15 @@ export function createTraceRuntimeController({
   drawPortalResizeHandles,
   syncTraceCanvasWindow,
   syncEditorCanvasWindow,
+  useDomPortalImages,
 }) {
   function render(dt) {
     state.heroWarpPhase += dt * state.heroWarpSpeed;
     bottomSectionController.update();
-    mediaBackRenderer.clear();
-    mediaFrontRenderer.clear();
+    if (!useDomPortalImages) {
+      mediaBackRenderer.clear();
+      mediaFrontRenderer.clear();
+    }
     syncTraceCanvasWindow();
 
     // Editor-only canvas work is disabled while its panel/grid is hidden.

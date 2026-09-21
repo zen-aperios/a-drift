@@ -82,7 +82,7 @@ export function createPortalAssetController({
       const item = {
         src, index, texture: null, mesh: null, material: null, aspect: 0.76,
         layer: initialPlacement?.layer || "back", x: state.width * 0.5, y: 0, width: 220, height: 290,
-        reveal: { progress: 0, target: 0 }, domStyle: {},
+        reveal: { progress: 0, target: 0 }, domStyle: {}, useQuickReveal: useDomPortalImages,
       };
       if (initialPlacement) {
         item.manualPlacement = {
@@ -139,7 +139,10 @@ export function createPortalAssetController({
       mesh = createPortalMesh(material);
       mediaBackScene.add(mesh);
     }
-    state.bottomVideo = { video, texture, material, mesh, aspect: 16 / 9, domStyle: {}, lastPlayAttempt: 0, reveal: { progress: 0, target: 0 } };
+    state.bottomVideo = {
+      video, texture, material, mesh, aspect: 16 / 9, domStyle: {}, lastPlayAttempt: 0,
+      useQuickReveal: useDomPortalImages, reveal: { progress: 0, target: 0 },
+    };
     video.addEventListener("loadedmetadata", () => {
       if (!cancelled()) state.bottomVideo.aspect = (video.videoWidth || 16) / Math.max(1, video.videoHeight || 9);
     });
@@ -157,6 +160,7 @@ export function createPortalAssetController({
     });
     if (state.bottomVideo) {
       state.bottomVideo.video.pause();
+      if (state.bottomVideo.scrollResumeTimer) clearTimeout(state.bottomVideo.scrollResumeTimer);
       state.bottomVideo.video.remove();
       state.bottomVideo.video.removeAttribute("src");
       state.bottomVideo.video.load();

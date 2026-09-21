@@ -148,6 +148,7 @@ export default function TraceDream() {
     const bottomGhostRenderer = createBottomGhostRenderer({
       ctx: bottomGhostCtx,
       state,
+      useDomPortalImages,
       heroDismissEase,
       getWarpPhase,
       getFrame: bottomVideoRenderer.getFrame,
@@ -388,6 +389,7 @@ export default function TraceDream() {
       drawPortalResizeHandles,
       syncTraceCanvasWindow: () => surfaceController?.syncTraceCanvasWindow(),
       syncEditorCanvasWindow: () => surfaceController?.syncEditorCanvasWindow(),
+      useDomPortalImages,
     });
 
     const traceScheduler = createTraceScheduler({ onFrame: traceRuntimeController.render });

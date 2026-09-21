@@ -95,8 +95,12 @@ export function createPortalRenderer({
     });
 
     const hasBottomVideo = drawBottomVideo();
-    if (hasVisibleBackPortal || hasBottomVideo) mediaBackRenderer.render(mediaBackScene, mediaCamera);
-    if (hasVisibleFrontPortal) mediaFrontRenderer.render(mediaFrontScene, mediaCamera);
+    if (!useDomPortalImages && (hasVisibleBackPortal || hasBottomVideo)) {
+      mediaBackRenderer.render(mediaBackScene, mediaCamera);
+    }
+    if (!useDomPortalImages && hasVisibleFrontPortal) {
+      mediaFrontRenderer.render(mediaFrontScene, mediaCamera);
+    }
   }
 
   return { draw };

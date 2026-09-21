@@ -3,6 +3,7 @@ import { clamp, lerp } from "./traceMath.js";
 const CONFIG = {
   fontSize: 116,
   curvePull: 84,
+  ghostReductionPerChain: 10,
   ghostOpacity: 0.58,
   ghostLineWidth: 1,
   ghostColor: "#ffffff",
@@ -12,6 +13,7 @@ const CONFIG = {
 export function createBottomGhostRenderer({
   ctx,
   state,
+  useDomPortalImages = false,
   heroDismissEase,
   getWarpPhase,
   getFrame,
@@ -111,7 +113,11 @@ export function createBottomGhostRenderer({
         const from = row[index];
         const to = row[index + 1];
         const distance = distances[index];
-        const ghostCount = clamp(Math.round(distance / Math.max(1, state.sampleDistance)), 24, Math.max(24, state.maxTrail));
+        const ghostCount = clamp(
+          Math.round(distance / Math.max(1, state.sampleDistance)) - CONFIG.ghostReductionPerChain,
+          14,
+          Math.max(14, state.maxTrail)
+        );
         const ghosts = [];
         const direction = index % 2 === 0 ? 1 : -1;
         for (let ghostIndex = 0; ghostIndex < ghostCount; ghostIndex += 1) {
@@ -166,7 +172,9 @@ export function createBottomGhostRenderer({
   function drawGlyph(stamp, screenY, solid, index, total, opacity) {
     const { canvas, width, height } = getGlyphCanvas(stamp.letter, solid);
     const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
-    const stripHeight = 1;
+    // Firefox is slower at the many tiny canvas copies used by this section.
+    // Two-pixel slices preserve the trail silhouette while reducing its draw calls.
+    const stripHeight = useDomPortalImages ? 2 : 1;
     const basePhase = (stamp.warpPhase || 0) + state.heroWarpPhase;
     const warpStrength = solid ? 0.55 : 0.72 + fade * 0.28;
 
@@ -203,10 +211,12 @@ export function createBottomGhostRenderer({
     state.bottomGhostSegments.forEach((segment) => {
       const rowProgress = getRowProgress(trailProgress, segment.rowIndex);
       const drawProgress = heroDismissEase(getDrawProgress(rowProgress));
-      const visibleGhosts = segment.ghosts.filter((ghost) => ghost.pathProgress <= drawProgress);
-      const visibleCount = visibleGhosts.length;
+      let visibleCount = 0;
+      while (visibleCount < segment.ghosts.length && segment.ghosts[visibleCount].pathProgress <= drawProgress) {
+        visibleCount += 1;
+      }
       for (let index = 0; index < visibleCount; index += 1) {
-        const ghost = visibleGhosts[index];
+        const ghost = segment.ghosts[index];
         const screenY = textCenterY + (ghost.y - gridWorldCenterY);
         if (screenY < -CONFIG.fontSize * 1.5 || screenY > state.height + CONFIG.fontSize * 1.5) continue;
         const fade = visibleCount <= 1 ? 1 : 1 - index / Math.max(1, visibleCount - 1);

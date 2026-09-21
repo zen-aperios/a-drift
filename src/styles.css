@@ -217,6 +217,11 @@ html.lenis body {
   background: #000000;
 }
 
+/* The visual editor remains on the canvas; controls are no longer part of the page UI. */
+.trace-tools {
+  display: none;
+}
+
 .controls {
   position: fixed;
   top: 16px;

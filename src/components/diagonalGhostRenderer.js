@@ -4,6 +4,8 @@ const CONFIG = {
   text: "IN-CREATIVITY",
   fontSize: 112,
   curvePull: 180,
+  ghostSpacingMultiplier: 1.65,
+  maxGhostsPerSegment: 55,
   ghostOpacity: 0.74,
   ghostLineWidth: 1,
   ghostColor: "#8b8b8b",
@@ -139,8 +141,15 @@ export function createDiagonalGhostRenderer({
         measuredLength += Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
         previousPoint = point;
       }
-      const dynamicCap = Math.max(160, Math.round(state.maxTrail / Math.max(1, stamps.length - 1)));
-      const ghostCount = clamp(Math.round(measuredLength / Math.max(1, state.sampleDistance)), 24, dynamicCap);
+      const dynamicCap = Math.min(
+        CONFIG.maxGhostsPerSegment,
+        Math.max(14, Math.round(state.maxTrail / Math.max(1, stamps.length - 1)))
+      );
+      const ghostCount = clamp(
+        Math.round(measuredLength / Math.max(1, state.sampleDistance * CONFIG.ghostSpacingMultiplier)),
+        14,
+        dynamicCap
+      );
       const ghosts = [];
       for (let ghostIndex = 0; ghostIndex < ghostCount; ghostIndex += 1) {
         const t = ghostCount === 1 ? 0 : ghostIndex / (ghostCount - 1);

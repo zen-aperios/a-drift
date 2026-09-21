@@ -74,7 +74,6 @@ export default function TraceDream() {
       totalHeight: 0,
       drawProgress: 0,
       scrollY: 0,
-      targetScrollY: 0,
       hasScrolled: false,
       heroDismiss: 0,
     };
@@ -301,14 +300,15 @@ export default function TraceDream() {
       const leftX = state.width * 0.28;
       const rightX = state.width * 0.72;
       const gap = state.height * (state.rowGapVh / 100);
-      const centerWorldY = state.height * 0.5 - state.height * 0.18;
+      const topOffset = state.height * 0.32;
+      const heroY = state.height * 0.5 - state.height * 0.18;
       const heroAnchorX = getCenteredHeroAnchorX();
 
       for (let i = 0; i < letters.length; i += 1) {
-        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, centerWorldY + gap * i, letters[i], true));
+        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true));
       }
 
-      state.totalHeight = gap * Math.max(0, letters.length - 1) + state.height * 1.5;
+      state.totalHeight = topOffset * 2 + gap * Math.max(0, letters.length - 1) + state.height * 0.8;
       scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
     }
@@ -332,13 +332,11 @@ export default function TraceDream() {
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - state.height);
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
-      state.targetScrollY = targetScroll;
       state.hasScrolled = targetScroll > 2;
 
       if (immediate) {
         gsap.set(state, {
           scrollY: targetScroll,
-          targetScrollY: targetScroll,
           drawProgress: progress,
           heroDismiss: targetScroll > 2 ? 1 : 0,
         });
@@ -539,9 +537,9 @@ export default function TraceDream() {
 
       for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
       for (let i = 0; i < state.anchors.length; i += 1) {
-        const anchorScreenY = state.anchors[i].y - state.targetScrollY + state.height * 0.18;
+        const anchorScreenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         const centerY = state.height * 0.5;
-        const revealStartY = centerY + state.height * (state.rowGapVh / 100);
+        const revealStartY = centerY + state.height * 0.72;
         const localProgress = i === 0 ? 1 : clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
         const eased = heroDismissEase(localProgress);
         if (eased <= 0.001) continue;

@@ -372,6 +372,7 @@ export default function TraceDream() {
       state.anchorReveals = state.anchors.map((_, index) => ({
         opacity: index === 0 ? 1 : 0,
         depth: index === 0 ? 0 : -1,
+        progress: index === 0 ? 1 : 0,
         active: index === 0,
       }));
       const rawSegments = [];
@@ -522,17 +523,14 @@ export default function TraceDream() {
       if (!reveal || reveal.active) return;
       reveal.active = true;
       gsap.killTweensOf(reveal);
-      gsap.fromTo(
-        reveal,
-        { opacity: 0, depth: -1 },
-        {
-          opacity: 1,
-          depth: 0,
-          duration: 0.8,
-          ease: "power4.out",
-          overwrite: true,
-        }
-      );
+      gsap.to(reveal, {
+        opacity: 1,
+        depth: 0,
+        progress: 1,
+        duration: 0.8,
+        ease: "power4.out",
+        overwrite: true,
+      });
     }
 
     function render() {
@@ -585,16 +583,29 @@ export default function TraceDream() {
       });
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
+        const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0, progress: 1 };
         if (i > 0 && !state.landedAnchors[i]) {
           const landingDistance = state.fontSize * 0.9;
-          state.landedAnchors[i] = activeGhosts.some((ghost) => (
-            ghost.letter === state.anchors[i].letter
-            && Math.hypot(ghost.x - state.anchors[i].x, ghost.y - state.anchors[i].y) <= landingDistance
-          )) || screenY <= state.height * 0.5;
+          const scrubStartDistance = state.fontSize * 1.7;
+          const nearestDistance = activeGhosts.reduce((nearest, ghost) => {
+            if (ghost.letter !== state.anchors[i].letter) return nearest;
+            return Math.min(nearest, Math.hypot(ghost.x - state.anchors[i].x, ghost.y - state.anchors[i].y));
+          }, Infinity);
+          const scrubProgress = clamp(
+            (scrubStartDistance - nearestDistance) / Math.max(1, scrubStartDistance - landingDistance),
+            0,
+            1
+          );
+          if (scrubProgress > reveal.progress) {
+            const easedScrub = heroDismissEase(scrubProgress);
+            reveal.progress = scrubProgress;
+            reveal.opacity = Math.max(reveal.opacity, easedScrub);
+            reveal.depth = Math.max(reveal.depth, -1 + easedScrub);
+          }
+          state.landedAnchors[i] = nearestDistance <= landingDistance || screenY <= state.height * 0.5;
           if (state.landedAnchors[i]) triggerAnchorReveal(i);
         }
-        if (i > 0 && !state.landedAnchors[i]) continue;
-        const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0 };
+        if (i > 0 && !state.landedAnchors[i] && reveal.opacity <= 0.001) continue;
         drawStamp(state.anchors[i], true, i, state.anchors.length, {
           ...(i === 0 ? getHeroWarpOptions() : {}),
           opacity: reveal.opacity,

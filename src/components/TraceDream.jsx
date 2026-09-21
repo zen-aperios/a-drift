@@ -70,6 +70,7 @@ export default function TraceDream() {
       rotateSpeed: 0.35,
       anchors: [],
       ghosts: [],
+      segments: [],
       heroChars: [],
       landedAnchors: [],
       totalHeight: 0,
@@ -367,26 +368,36 @@ export default function TraceDream() {
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
       state.landedAnchors = state.anchors.map((_, index) => index === 0);
-      const chain = [];
+      const rawSegments = [];
       for (let i = 0; i < state.anchors.length - 1; i += 1) {
         const segment = sampleCurve(state.anchors[i], state.anchors[i + 1], i);
         if (i > 0) segment.shift();
-        chain.push(...segment);
+        rawSegments.push({
+          fromIndex: i,
+          toIndex: i + 1,
+          letter: letters[i + 1] || letters[i],
+          points: segment,
+        });
       }
 
-      const ghosts = [];
-      const totalGhosts = clamp(state.maxTrail, 0, chain.length);
-      if (totalGhosts > 0 && chain.length > 1) {
-        for (let i = 0; i < totalGhosts; i += 1) {
-          const t = totalGhosts === 1 ? 0 : i / (totalGhosts - 1);
-          const idx = Math.round(t * (chain.length - 1));
-          const point = chain[idx];
-          const letterIndex = clamp(Math.round(t * (state.anchors.length - 1)), 0, state.anchors.length - 1);
-          ghosts.push(createStamp(point.x, point.y, letters[letterIndex], false));
+      const totalPoints = rawSegments.reduce((sum, segment) => sum + segment.points.length, 0);
+      const segments = rawSegments.map((segment) => {
+        const segmentShare = totalPoints > 0 ? segment.points.length / totalPoints : 0;
+        const ghostTotal = clamp(Math.round(state.maxTrail * segmentShare), 1, segment.points.length);
+        const ghosts = [];
+        for (let i = 0; i < ghostTotal; i += 1) {
+          const t = ghostTotal === 1 ? 0 : i / (ghostTotal - 1);
+          const point = segment.points[Math.round(t * (segment.points.length - 1))];
+          ghosts.push(createStamp(point.x, point.y, segment.letter, false));
         }
-      }
+        return {
+          ...segment,
+          ghosts,
+        };
+      });
 
-      state.ghosts = ghosts;
+      state.segments = segments;
+      state.ghosts = segments.flatMap((segment) => segment.ghosts);
       updateScrollTargets(true);
     }
 
@@ -523,8 +534,21 @@ export default function TraceDream() {
         });
       }
 
-      for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
-      const activeGhosts = state.ghosts.slice(0, ghostCount);
+      const activeGhosts = [];
+      state.segments.forEach((segment) => {
+        const anchor = state.anchors[segment.toIndex];
+        if (!anchor) return;
+        const anchorScreenY = anchor.y - state.scrollY + state.height * 0.18;
+        const centerY = state.height * 0.5;
+        const revealStartY = centerY + state.height * (state.rowGapVh / 100);
+        const segmentProgress = clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
+        const segmentGhostCount = Math.floor(segment.ghosts.length * clamp(segmentProgress * 1.15, 0, 1));
+        for (let i = 0; i < segmentGhostCount; i += 1) {
+          const ghost = segment.ghosts[i];
+          activeGhosts.push(ghost);
+          drawStamp(ghost, false, i, Math.max(segmentGhostCount, 1));
+        }
+      });
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         if (i > 0 && !state.landedAnchors[i]) {

@@ -540,13 +540,20 @@ export default function TraceDream() {
       }
 
       const centerY = state.height * 0.5;
-      const ghostLeadY = state.height * (state.rowGapVh / 100) * 0.28;
-      const visibleGhosts = state.ghosts.filter((ghost) => {
-        const ghostScreenY = ghost.y - state.targetScrollY + state.height * 0.18;
-        return ghostScreenY <= centerY + ghostLeadY;
-      });
-      visibleGhosts.forEach((ghost, index) => {
-        drawStamp(ghost, false, index, Math.max(visibleGhosts.length, 1));
+      const ghostLeadY = state.height * (state.rowGapVh / 100) * 0.16;
+      const ghostFadeY = state.height * 0.18;
+      const ghostLimitY = centerY + ghostLeadY;
+      const visibleGhosts = state.ghosts
+        .map((ghost) => {
+          const ghostScreenY = ghost.y - state.scrollY + state.height * 0.18;
+          const edgeFade = clamp((ghostLimitY + ghostFadeY - ghostScreenY) / ghostFadeY, 0, 1);
+          return { ghost, edgeFade };
+        })
+        .filter(({ edgeFade }) => edgeFade > 0.001);
+      visibleGhosts.forEach(({ ghost, edgeFade }, index) => {
+        drawStamp(ghost, false, index, Math.max(visibleGhosts.length, 1), {
+          opacity: edgeFade,
+        });
       });
       for (let i = 0; i < state.anchors.length; i += 1) {
         const anchorScreenY = state.anchors[i].y - state.targetScrollY + state.height * 0.18;

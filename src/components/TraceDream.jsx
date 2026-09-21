@@ -12,6 +12,8 @@ import {
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
 import { createDiagonalGhostRenderer } from "./diagonalGhostRenderer.js";
+import { createBottomVideoRenderer } from "./bottomVideoRenderer.js";
+import { createPortalRenderer } from "./portalRenderer.js";
 import { AlphabetGlyph } from "./AlphabetGlyph.jsx";
 import {
   ALPHABET_LETTERS,
@@ -207,14 +209,47 @@ export default function TraceDream() {
       exit: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
+    const bottomVideoRenderer = createBottomVideoRenderer({
+      ctx,
+      state,
+      bottomAnimation,
+      heroDismissEase,
+      useDomPortalImages,
+      mediaDomBackLayer,
+      getBottomVideoBaseScreenY,
+      getBottomVideoBaseRawScreenY,
+      getDocumentY,
+      getThreeDocumentY,
+      startAnimation: startBottomAnimation,
+      setPortalReveal,
+      syncPortalMaterial,
+    });
     const bottomGhostRenderer = createBottomGhostRenderer({
       ctx: bottomGhostCtx,
       state,
       heroDismissEase,
       getWarpPhase,
-      getFrame: getBottomVideoFrame,
+      getFrame: bottomVideoRenderer.getFrame,
       getProgress: () => bottomAnimation.progress,
       getDrawOffsetY: () => state.bottomGhostCanvasTop,
+    });
+    const portalRenderer = createPortalRenderer({
+      state,
+      heroDismissEase,
+      useDomPortalImages,
+      mediaDomBackLayer,
+      mediaDomFrontLayer,
+      mediaBackScene,
+      mediaFrontScene,
+      mediaCamera,
+      mediaBackRenderer,
+      mediaFrontRenderer,
+      getDocumentY,
+      getThreeDocumentY,
+      getPortalVisibleFrame,
+      setPortalReveal,
+      syncPortalMaterial,
+      drawBottomVideo: bottomVideoRenderer.draw,
     });
     const diagonalGhostRenderer = createDiagonalGhostRenderer({
       ctx,
@@ -1660,152 +1695,6 @@ export default function TraceDream() {
       return state.renderHeight - documentY;
     }
 
-    function drawBottomVideo() {
-      const item = state.bottomVideo;
-      if (!item) return false;
-
-      const rawScreenY = getBottomVideoBaseScreenY();
-      const revealStartY = state.height * (state.portalRevealStart / 100);
-      const revealDistance = state.height * (state.portalRevealDistance / 100);
-      const revealTarget = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);
-      if (revealTarget > 0.02) startBottomAnimation();
-      setPortalReveal(item, revealTarget);
-      const progress = clamp(item.reveal.progress, 0, 1);
-
-      const eased = heroDismissEase(progress);
-      const frame = getBottomVideoFrame();
-
-      if (useDomPortalImages) {
-        const style = item.domStyle;
-        const setStyle = (key, value) => {
-          if (style[key] === value) return;
-          style[key] = value;
-          item.video.style[key] = value;
-        };
-        setStyle("display", progress > 0.001 ? "block" : "none");
-        if (progress <= 0.001) return false;
-        if (item.video.paused && performance.now() - item.lastPlayAttempt > 1000) {
-          item.lastPlayAttempt = performance.now();
-          item.video.play().catch(() => {});
-        }
-        setStyle("width", `${Math.round(frame.width)}px`);
-        setStyle("height", `${Math.round(frame.height)}px`);
-        setStyle("opacity", eased >= 0.995 ? "1" : eased.toFixed(3));
-        setStyle("clipPath", eased >= 0.995 ? "none" : `inset(${((1 - eased) * 100).toFixed(2)}% 0 0 0)`);
-        setStyle("transform", `translate3d(${(frame.x - frame.width * 0.5).toFixed(2)}px, ${(frame.documentY - frame.height * 0.5).toFixed(2)}px, 0)`);
-        return true;
-      }
-
-      if (!item.mesh || !item.material) return false;
-      item.mesh.visible = progress > 0.001;
-      if (!item.mesh.visible) return false;
-
-      item.mesh.position.set(frame.x, getThreeDocumentY(frame.documentY), 0);
-      item.mesh.scale.set(frame.width, frame.height, 1);
-      syncPortalMaterial(item, frame.width, frame.height, eased, 1.7);
-      item.material.uniforms.uImageResolution.value.set(item.video.videoWidth || 16, item.video.videoHeight || 9);
-      return true;
-    }
-
-    function getBottomVideoFrame() {
-      const item = state.bottomVideo;
-      const videoReveal = item?.reveal?.progress ?? 0;
-      const videoEased = heroDismissEase(clamp(videoReveal, 0, 1));
-      const width = state.width * 0.95;
-      const height = width / Math.max(0.1, item?.aspect || 16 / 9);
-      const baseScreenY = getBottomVideoBaseRawScreenY();
-      const y = baseScreenY;
-      return {
-        x: state.width * 0.5,
-        y,
-        screenY: y,
-        documentY: getDocumentY(y),
-        width,
-        height,
-        reveal: videoEased,
-      };
-    }
-
-    function drawBottomVideoShade() {
-      const progress = bottomAnimation.progress;
-      if (progress <= 0.001) return;
-      const frame = getBottomVideoFrame();
-      const trailProgress = clamp(progress / 0.82, 0, 1);
-      const opacity = 0.28 * frame.reveal * heroDismissEase(clamp(trailProgress, 0, 1));
-      if (opacity <= 0.001) return;
-      ctx.save();
-      ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-      ctx.fillRect(frame.x - frame.width * 0.5, frame.documentY - frame.height * 0.5, frame.width, frame.height);
-      ctx.restore();
-    }
-
-    function drawPortalImages() {
-      let hasVisibleBackPortal = false;
-      let hasVisibleFrontPortal = false;
-      state.portalImages.forEach((item) => {
-        if (item.mesh) item.mesh.visible = false;
-        if (item.domNode) item.domNode.style.display = "none";
-        item.renderFrame = null;
-        item.visibleRenderFrame = null;
-      });
-      state.portalImages.forEach((item) => {
-        const rawScreenY = item.y - state.rawScrollY + state.height * 0.18;
-        const revealStartY = state.height * (state.portalRevealStart / 100);
-        const revealDistance = state.height * (state.portalRevealDistance / 100);
-        const enterProgress = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);
-        const revealTarget = rawScreenY < -item.height * 1.6 ? 0 : enterProgress;
-        setPortalReveal(item, revealTarget);
-        const progress = clamp(item.reveal.progress, 0, 1);
-        if (progress <= 0.001) return;
-
-        const eased = heroDismissEase(progress);
-        const width = item.width;
-        const height = item.height;
-        const slideY = (1 - eased) * 64;
-        const slowScrollDrift = Math.sin(state.rawScrollY * 0.002 + item.index * 0.67) * state.portalDrift;
-        const parallaxDrift = (rawScreenY - state.height * 0.5) * state.portalParallax;
-        const screenY = rawScreenY + slowScrollDrift + parallaxDrift;
-        const documentY = getDocumentY(screenY + slideY);
-        item.renderFrame = { x: item.x, y: documentY, width, height };
-        item.visibleRenderFrame = getPortalVisibleFrame(item.renderFrame, item);
-
-        if (useDomPortalImages && item.domNode) {
-          const targetLayer = item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer;
-          if (item.domNode.parentNode !== targetLayer) targetLayer.appendChild(item.domNode);
-          if (item.layer === "front") hasVisibleFrontPortal = true;
-          else hasVisibleBackPortal = true;
-          item.domNode.style.display = "block";
-          item.domNode.style.width = `${width}px`;
-          item.domNode.style.height = `${height}px`;
-          item.domNode.style.opacity = `${eased}`;
-          item.domNode.style.clipPath = `inset(${(1 - eased) * 100}% 0 0 0)`;
-          item.domNode.style.transform = `translate3d(${item.x - width * 0.5}px, ${documentY - height * 0.5}px, 0)`;
-          return;
-        }
-
-        if (item.mesh && item.material) {
-          const targetScene = item.layer === "front" ? mediaFrontScene : mediaBackScene;
-          if (item.mesh.parent !== targetScene) {
-            item.mesh.parent?.remove(item.mesh);
-            targetScene.add(item.mesh);
-          }
-          if (item.layer === "front") hasVisibleFrontPortal = true;
-          else hasVisibleBackPortal = true;
-          item.mesh.visible = true;
-          item.mesh.position.set(item.x, getThreeDocumentY(documentY), 0);
-          item.mesh.scale.set(width, height, 1);
-          syncPortalMaterial(item, width, height, eased, item.index * 0.35);
-          if (item.texture?.image) {
-            item.material.uniforms.uImageResolution.value.set(item.texture.image.width || 1, item.texture.image.height || 1);
-          }
-        }
-
-      });
-      const hasBottomVideo = drawBottomVideo();
-      if (hasVisibleBackPortal || hasBottomVideo) mediaBackRenderer.render(mediaBackScene, mediaCamera);
-      if (hasVisibleFrontPortal) mediaFrontRenderer.render(mediaFrontScene, mediaCamera);
-    }
-
     function triggerAnchorReveal(index) {
       const reveal = state.anchorReveals[index];
       if (!reveal || reveal.active) return;
@@ -1886,9 +1775,9 @@ export default function TraceDream() {
           drawStamp(ghost, false, i, Math.max(segmentGhostCount, 1));
         }
       });
-      drawPortalImages();
+      portalRenderer.draw();
       drawPlacementGrid();
-      drawBottomVideoShade();
+      bottomVideoRenderer.drawShade();
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0, progress: 1 };

@@ -8,6 +8,8 @@ import {
   createPortalMesh,
   loadPortalImageUrls,
 } from "./portalMedia.js";
+import { applyPortalLayout } from "./portalLayout.js";
+import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 
 const LETTERS = "APERIOS".split("");
 
@@ -19,32 +21,6 @@ function hexToRgba(hex, alpha) {
   const g = (int >> 8) & 255;
   const b = int & 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function fract(value) {
-  return value - Math.floor(value);
-}
-
-function seededRandom(index, salt = 0) {
-  return fract(Math.sin(index * 127.1 + salt * 311.7) * 43758.5453);
-}
-
-function cubicPoint(p0, p1, p2, p3, t) {
-  const mt = 1 - t;
-  const mt2 = mt * mt;
-  const t2 = t * t;
-  return {
-    x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
-    y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
-  };
 }
 
 export default function TraceDream() {
@@ -389,41 +365,14 @@ export default function TraceDream() {
     }
 
     function buildPortalLayout() {
-      if (!state.portalImages.length || !state.anchors.length) return;
-      const gap = state.height * (state.rowGapVh / 100);
-      const heroWrap = getHeroGhostWrapBounds();
-      const targetWidth = clamp(heroWrap.width * 0.42, state.width * 0.22, state.width * 0.44);
-      const firstSegment = state.segments[0];
-      const firstPoints = firstSegment?.points || [];
-      const firstMiddle = firstPoints[Math.floor(firstPoints.length * 0.5)] || state.anchors[1] || state.anchors[0];
-      const lowerStart = firstMiddle.y + gap * 0.72;
-      const lowerEnd = (state.anchors[state.anchors.length - 1]?.y || lowerStart + gap * 3) - gap * 0.18;
-      const remaining = Math.max(1, state.portalImages.length - 1);
-      const columns = [-0.7, 0.7, 0, -1.05, 1.05];
-      state.portalImages.forEach((item, index) => {
-        const forceTrailCenter = index === 5;
-        const column = forceTrailCenter ? 0 : columns[index % columns.length];
-        const rowT = index === 0 ? 0 : (index - 1) / Math.max(1, remaining - 1);
-        const rowY = index === 0 ? firstMiddle.y : lerp(lowerStart, lowerEnd, rowT);
-        const pathSegmentIndex = clamp(Math.round(rowT * Math.max(0, state.segments.length - 1)), 0, Math.max(0, state.segments.length - 1));
-        const segment = state.segments[forceTrailCenter ? 3 : pathSegmentIndex];
-        const points = segment?.points || [];
-        const pathPoint =
-          index === 0
-            ? firstMiddle
-            : points[
-                Math.floor((forceTrailCenter ? 0.5 : lerp(0.28, 0.72, seededRandom(index, 7))) * Math.max(0, points.length - 1))
-              ] ||
-              state.anchors[Math.min(index, state.anchors.length - 1)] ||
-              state.anchors[0];
-        const sideOffset = column * clamp(heroWrap.width * 0.36, 170, state.width * 0.38);
-        const jitterX = index === 0 || forceTrailCenter ? 0 : lerp(-0.08, 0.08, seededRandom(index, 8)) * heroWrap.width;
-        const jitterY = index === 0 || forceTrailCenter ? 0 : lerp(-0.14, 0.14, seededRandom(index, 9)) * gap;
-        item.x = clamp(pathPoint.x + sideOffset + jitterX, state.width * 0.12, state.width * 0.88);
-        item.y = forceTrailCenter ? pathPoint.y : rowY + jitterY;
-        item.width = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4));
-        item.height = item.width / Math.max(0.1, item.aspect);
-        item.layer = index === 0 || index % 4 === 2 || index % 5 === 0 ? "front" : "back";
+      applyPortalLayout({
+        portalImages: state.portalImages,
+        anchors: state.anchors,
+        segments: state.segments,
+        height: state.height,
+        width: state.width,
+        rowGapVh: state.rowGapVh,
+        heroWrap: getHeroGhostWrapBounds(),
       });
     }
 

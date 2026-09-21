@@ -474,7 +474,7 @@ export default function TraceDream() {
     function render() {
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
-      const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * state.drawProgress) : idleGhostCount;
+      const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.35, 0, 1)) : idleGhostCount;
       const anchorCount = state.hasScrolled ? Math.floor(state.anchors.length * state.drawProgress) + 1 : 1;
 
       if (!state.hasScrolled) {

@@ -78,7 +78,6 @@ export default function TraceDream() {
       heroDismiss: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
-    const depthPushEase = gsap.parseEase("power3.out");
 
     const lettersInput = q("#lettersInput");
     const fontSizeRange = q("#fontSizeRange");
@@ -99,6 +98,7 @@ export default function TraceDream() {
     const bgColorInput = q("#bgColorInput");
     const rebuildBtn = q("#traceRebuildBtn");
     let letters = LETTERS.slice();
+    const depthPushStates = new Map();
 
     function setText(id, value) {
       const node = q(`#${id}`);
@@ -353,7 +353,7 @@ export default function TraceDream() {
 
       gsap.to(state, {
         heroDismiss: targetScroll > 2 ? 1 : 0,
-        duration: 1.8,
+        duration: 3.4,
         ease: "power4.out",
         overwrite: "auto",
       });
@@ -361,6 +361,7 @@ export default function TraceDream() {
 
     function rebuildLayout() {
       glyphCache.clear();
+      depthPushStates.clear();
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
       const chain = [];
@@ -457,7 +458,7 @@ export default function TraceDream() {
 
     function drawAnimatedGhostStack(stamp, offsets, opacityMultiplier = 1, yLift = 0) {
       const phase = (performance.now() * 0.00018 + stamp.x * 0.0002) % 1;
-      const pushProgress = phase < 0.5 ? depthPushEase(1 - phase / 0.5) : 0;
+      const pushProgress = getDepthPush(stamp, phase);
       const pushScale = 1 + pushProgress * 0.075;
       const pushOpacity = opacityMultiplier * (0.78 + pushProgress * 0.22);
       for (let i = 5; i >= 1; i -= 1) {
@@ -478,6 +479,33 @@ export default function TraceDream() {
         opacity: pushOpacity,
         scale: pushScale,
       });
+    }
+
+    function getDepthPush(stamp, phase) {
+      const key = `${stamp.letter}:${Math.round(stamp.x)}:${Math.round(stamp.y)}`;
+      let push = depthPushStates.get(key);
+      if (!push) {
+        push = { value: 0, lastPhase: phase, active: false };
+        depthPushStates.set(key, push);
+      }
+
+      const triggerPhase = 0.86;
+      const crossedTrigger = push.lastPhase < triggerPhase && phase >= triggerPhase;
+      if (crossedTrigger && !push.active) {
+        push.active = true;
+        gsap.killTweensOf(push);
+        gsap.timeline({
+          onComplete: () => {
+            push.active = false;
+          },
+        })
+          .set(push, { value: 0 })
+          .to(push, { value: 1, duration: 0.8, ease: "power4.out" })
+          .to(push, { value: 0, duration: 0.55, ease: "power4.out" }, ">-0.08");
+      }
+
+      push.lastPhase = phase;
+      return push.value;
     }
 
     function render() {

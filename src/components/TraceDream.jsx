@@ -53,7 +53,7 @@ export default function TraceDream() {
       height: 0,
       dpr: 1,
       fontSize: 160,
-      rowGapVh: 90,
+      rowGapVh: 120,
       sampleDistance: 0,
       maxTrail: 1200,
       curvePull: 700,
@@ -537,8 +537,10 @@ export default function TraceDream() {
 
       for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
       for (let i = 0; i < state.anchors.length; i += 1) {
-        const anchorProgress = i / Math.max(1, state.anchors.length - 1);
-        const localProgress = i === 0 ? 1 : clamp((state.drawProgress - anchorProgress) / 0.085, 0, 1);
+        const anchorScreenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
+        const centerY = state.height * 0.5;
+        const revealStartY = centerY + state.height * 0.72;
+        const localProgress = i === 0 ? 1 : clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
         const eased = heroDismissEase(localProgress);
         if (eased <= 0.001) continue;
         drawStamp(state.anchors[i], true, i, state.anchors.length, {
@@ -615,7 +617,7 @@ export default function TraceDream() {
           <label htmlFor="fontSizeRange">Font Size <span id="fontSizeVal" /></label>
           <input id="fontSizeRange" type="range" min="48" max="160" step="1" defaultValue="160" />
           <label htmlFor="rowGapRange">Row Gap <span id="rowGapVal" /></label>
-          <input id="rowGapRange" type="range" min="20" max="120" step="1" defaultValue="90" />
+          <input id="rowGapRange" type="range" min="20" max="160" step="1" defaultValue="120" />
         </div>
         <div className="controls__block">
           <label htmlFor="sampleDistanceRange">Stagger Offset <span id="sampleDistanceVal" /></label>

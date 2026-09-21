@@ -7,7 +7,6 @@ export function createPathEditorController({
   pathEditor,
   pathGuidesToggle,
   pathExportOutput,
-  pathControlsOpen,
   getCreativityWorldY,
   getCreativityRawY,
   rebuildLayout,
@@ -63,9 +62,8 @@ export function createPathEditorController({
 
   function update() {
     if (!pathEditor) return;
-    const shouldShowEditor = pathControlsOpen() || Boolean(activePathPoint);
-    pathEditor.classList.toggle("is-hidden", !shouldShowEditor);
-    if (!shouldShowEditor) return;
+    // The visual editor stays visible independently of the control-panel toggle.
+    pathEditor.classList.remove("is-hidden");
     pathEditor.classList.toggle("is-guides-hidden", !(pathGuidesToggle?.checked ?? true));
     pathEditor.setAttribute("viewBox", `0 0 ${state.width} ${Math.max(state.renderHeight, state.height)}`);
     const documentOffsetY = state.rawScrollY;

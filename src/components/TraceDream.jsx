@@ -21,6 +21,9 @@ import { createPlacementLayout } from "./placementLayout.js";
 import { createPathEditorController } from "./pathEditorController.js";
 import { createGlyphRenderer } from "./glyphRenderer.js";
 import { AlphabetGenerator } from "./AlphabetGenerator.jsx";
+import { createTraceScheduler } from "./traceScheduler.js";
+import { createBottomSectionController } from "./bottomSectionController.js";
+import { createPortalEditorController } from "./portalEditorController.js";
 import {
   BOTTOM_VIDEO_URL,
   INITIAL_PORTAL_IMAGE_LAYOUT,
@@ -30,8 +33,6 @@ import {
 } from "./traceConfig.js";
 
 const TRACE_DPR_CAP = 1.25;
-const TRACE_RENDER_FPS = 40;
-
 export default function TraceDream() {
   const canvasRef = useRef(null);
   const bottomCanvasRef = useRef(null);
@@ -42,11 +43,6 @@ export default function TraceDream() {
   const mediaDomFrontLayerRef = useRef(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [pathControlsOpen, setPathControlsOpen] = useState(false);
-  const pathControlsOpenRef = useRef(pathControlsOpen);
-
-  useEffect(() => {
-    pathControlsOpenRef.current = pathControlsOpen;
-  }, [pathControlsOpen]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -151,14 +147,21 @@ export default function TraceDream() {
       heroDismiss: 0,
       heroWarpPhase: 0,
       heroWarpSpeed: 0.0012,
-      lastFrameTime: 0,
-      lastRenderTime: 0,
       editorWasVisible: false,
     };
     const bottomAnimation = {
       progress: 0,
       started: false,
     };
+    const bottomSectionController = createBottomSectionController({
+      state,
+      animation: bottomAnimation,
+    });
+    const {
+      getVideoBaseScreenY,
+      getVideoBaseRawScreenY,
+      startAnimation: startBottomAnimation,
+    } = bottomSectionController;
     const scrollCue = {
       exit: 0,
     };
@@ -177,8 +180,8 @@ export default function TraceDream() {
       heroDismissEase,
       useDomPortalImages,
       mediaDomBackLayer,
-      getBottomVideoBaseScreenY,
-      getBottomVideoBaseRawScreenY,
+      getBottomVideoBaseScreenY: getVideoBaseScreenY,
+      getBottomVideoBaseRawScreenY: getVideoBaseRawScreenY,
       getDocumentY,
       getThreeDocumentY,
       startAnimation: startBottomAnimation,
@@ -254,6 +257,23 @@ export default function TraceDream() {
       hoveredPortalCorner: null,
       selectedPortalItem: null,
     };
+    let portalEditorController;
+
+    function syncPortalConfigExport() {
+      portalEditorController?.syncConfigExport();
+    }
+
+    function copyPortalConfig() {
+      return portalEditorController?.copyConfig();
+    }
+
+    function drawPlacementGrid() {
+      portalEditorController?.drawPlacementGrid();
+    }
+
+    function drawPortalResizeHandles() {
+      portalEditorController?.drawResizeHandles();
+    }
     let pendingCreativityRebuild = 0;
     let pendingCreativityEditorUpdate = false;
     const placementLayout = createPlacementLayout({
@@ -294,7 +314,6 @@ export default function TraceDream() {
       pathEditor,
       pathGuidesToggle,
       pathExportOutput,
-      pathControlsOpen: () => pathControlsOpenRef.current,
       getCreativityWorldY,
       getCreativityRawY,
       rebuildLayout,
@@ -305,6 +324,16 @@ export default function TraceDream() {
       getPortalFrameCorners,
       getPortalLayerToggleRect,
     } = portalInteraction;
+    portalEditorController = createPortalEditorController({
+      state,
+      ctx,
+      bottomCtx,
+      interaction: portalInteractionState,
+      getPortalItemInteractiveFrame,
+      getPortalFrameCorners,
+      getPortalLayerToggleRect,
+      portalConfigExport,
+    });
 
     function syncControls() {
       letters = controls.syncControls();
@@ -524,52 +553,6 @@ export default function TraceDream() {
         }
       });
       syncPortalConfigExport();
-    }
-
-    function getPortalConfig() {
-      return {
-        grid: {
-          columns: PLACEMENT_GRID_COLUMNS,
-          rows: PLACEMENT_GRID_ROWS,
-        },
-        images: state.portalImages.map((item) => ({
-          index: item.index,
-          src: item.src?.split("/").pop() || item.src,
-          layer: item.layer,
-          x: Number(item.x.toFixed(2)),
-          y: Number(item.y.toFixed(2)),
-          documentY: Number((item.y + state.height * 0.18).toFixed(2)),
-          width: Number(item.width.toFixed(2)),
-          height: Number(item.height.toFixed(2)),
-          aspect: Number((item.aspect || 1).toFixed(4)),
-          cell: item.layoutBlock
-            ? {
-                gapIndex: item.layoutBlock.gapIndex,
-                column: item.layoutBlock.column,
-                row: item.layoutBlock.row,
-                label: item.layoutBlock.label,
-              }
-            : item.manualPlacement?.cell || null,
-          span: item.layoutBlock?.span || item.manualPlacement?.span || null,
-          stretched: Boolean(item.manualPlacement?.stretched),
-        })),
-      };
-    }
-
-    function syncPortalConfigExport() {
-      if (!portalConfigExport) return;
-      portalConfigExport.value = JSON.stringify(getPortalConfig(), null, 2);
-    }
-
-    async function copyPortalConfig() {
-      syncPortalConfigExport();
-      const text = portalConfigExport?.value || "";
-      if (!text) return;
-      try {
-        await navigator.clipboard?.writeText(text);
-      } catch {
-        portalConfigExport?.select?.();
-      }
     }
 
     function buildHeroChars() {
@@ -810,51 +793,6 @@ export default function TraceDream() {
       return clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativityBaseHeight), 0.02, 0.98);
     }
 
-    function getBottomSectionScreenY() {
-      return state.bottomSectionStart - state.scrollY + state.height * 0.18;
-    }
-
-    function getBottomVideoBaseScreenY() {
-      return state.bottomSectionStart + state.height * 0.54 - state.scrollY + state.height * 0.18;
-    }
-
-    function getBottomVideoBaseRawScreenY() {
-      return state.bottomSectionStart + state.height * 0.54 - state.rawScrollY + state.height * 0.18;
-    }
-
-    function startBottomAnimation() {
-      if (bottomAnimation.started) return;
-      bottomAnimation.started = true;
-      gsap.killTweensOf(bottomAnimation);
-      gsap.fromTo(
-        bottomAnimation,
-        { progress: 0 },
-        {
-          progress: 1,
-          duration: 4.4,
-          ease: "none",
-          overwrite: "auto",
-        }
-      );
-    }
-
-    function updateBottomAnimation() {
-      const videoScreenY = getBottomVideoBaseRawScreenY();
-      const shouldStart = videoScreenY < state.height * 0.9 && videoScreenY > -state.height * 0.35;
-      const shouldReset = videoScreenY > state.height * 1.08;
-
-      if (shouldReset && bottomAnimation.started) {
-        bottomAnimation.started = false;
-        gsap.killTweensOf(bottomAnimation);
-        bottomAnimation.progress = 0;
-        return;
-      }
-
-      if (shouldStart && !bottomAnimation.started) {
-        startBottomAnimation();
-      }
-    }
-
     function sampleCurve(start, end, bendIndex) {
       const dx = end.x - start.x;
       const dy = end.y - start.y;
@@ -988,109 +926,6 @@ export default function TraceDream() {
       };
     }
 
-    function drawPlacementGrid() {
-      if (state.hidePlacementGrid) return;
-      if (!state.anchors.length) return;
-      const columns = PLACEMENT_GRID_COLUMNS;
-      const rows = PLACEMENT_GRID_ROWS;
-      const left = state.width * 0.08;
-      const width = state.width * 0.84;
-      const padY = state.fontSize * 0.55;
-
-      ctx.save();
-      ctx.lineWidth = 1;
-      ctx.setLineDash([]);
-      ctx.font = "500 10px Geist, Helvetica, Arial, sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-
-      for (let index = 0; index < state.anchors.length - 1; index += 1) {
-        const from = state.anchors[index];
-        const to = state.anchors[index + 1];
-        const top = Math.min(from.y, to.y) + state.height * 0.18 + padY;
-        const bottom = Math.max(from.y, to.y) + state.height * 0.18 - padY;
-        const height = bottom - top;
-        if (height <= 40) continue;
-
-        const screenTop = top - state.rawScrollY;
-        const screenBottom = bottom - state.rawScrollY;
-        if (screenBottom < -80 || screenTop > state.height + 80) continue;
-
-        ctx.globalAlpha = 0.22;
-        ctx.strokeStyle = "#ffffff";
-        ctx.strokeRect(left, top, width, height);
-
-        ctx.globalAlpha = 0.14;
-        for (let column = 1; column < columns; column += 1) {
-          const x = left + (width * column) / columns;
-          ctx.beginPath();
-          ctx.moveTo(x, top);
-          ctx.lineTo(x, bottom);
-          ctx.stroke();
-        }
-
-        for (let row = 1; row < rows; row += 1) {
-          const y = top + (height * row) / rows;
-          ctx.beginPath();
-          ctx.moveTo(left, y);
-          ctx.lineTo(left + width, y);
-          ctx.stroke();
-        }
-
-        ctx.globalAlpha = 0.34;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${from.letter}-${to.letter}`, left + 8, top + 8);
-      }
-
-      ctx.restore();
-    }
-
-    function drawPortalResizeHandles() {
-      if (state.hidePlacementGrid) return;
-      bottomCtx.save();
-      bottomCtx.setLineDash([]);
-      const activeResize = portalInteractionState.activePortalDrag?.mode === "resize" ? portalInteractionState.activePortalDrag : null;
-      const handleTarget = activeResize || portalInteractionState.hoveredPortalCorner || (portalInteractionState.selectedPortalItem ? { item: portalInteractionState.selectedPortalItem } : null);
-      if (handleTarget?.item?.mesh && (handleTarget.item.reveal?.progress ?? 0) > 0.02) {
-        const frame = getPortalItemInteractiveFrame(handleTarget.item);
-        getPortalFrameCorners(frame).forEach((corner) => {
-          const screenY = corner.y - state.rawScrollY;
-          if (screenY < -24 || screenY > state.height + 24) return;
-          const isActive = corner.corner === handleTarget.corner;
-          bottomCtx.globalAlpha = isActive ? 0.96 : 0.62;
-          bottomCtx.fillStyle = isActive ? "#ffffff" : "#d8d7d2";
-          bottomCtx.strokeStyle = "#000000";
-          bottomCtx.lineWidth = isActive ? 2.5 : 1.5;
-          bottomCtx.beginPath();
-          bottomCtx.arc(corner.x, corner.y, 7, 0, Math.PI * 2);
-          bottomCtx.fill();
-          bottomCtx.stroke();
-        });
-        drawPortalLayerToggle(handleTarget.item, frame);
-      }
-      bottomCtx.restore();
-    }
-
-    function drawPortalLayerToggle(item, frame) {
-      const button = getPortalLayerToggleRect(frame);
-      const screenY = button.y - state.rawScrollY;
-      if (screenY < -32 || screenY > state.height + 32) return;
-      const isFront = item.layer === "front";
-      bottomCtx.save();
-      bottomCtx.globalAlpha = 0.9;
-      bottomCtx.fillStyle = isFront ? "#ffffff" : "#d8d7d2";
-      bottomCtx.strokeStyle = "#000000";
-      bottomCtx.lineWidth = 1.5;
-      bottomCtx.fillRect(button.x - button.width * 0.5, button.y - button.height * 0.5, button.width, button.height);
-      bottomCtx.strokeRect(button.x - button.width * 0.5, button.y - button.height * 0.5, button.width, button.height);
-      bottomCtx.fillStyle = "#000000";
-      bottomCtx.font = "700 9px Geist, Helvetica, Arial, sans-serif";
-      bottomCtx.textAlign = "center";
-      bottomCtx.textBaseline = "middle";
-      bottomCtx.fillText(isFront ? "BACK" : "FRONT", button.x, button.y + 0.5);
-      bottomCtx.restore();
-    }
-
     function setPortalReveal(item, target) {
       target = clamp(target, 0, 1);
       if (Math.abs(item.reveal.target - target) < 0.01) return;
@@ -1143,22 +978,9 @@ export default function TraceDream() {
       });
     }
 
-    // The ticker remains mounted for GSAP timing, but hidden tabs do no canvas
-    // work. This keeps scroll/reveal state available when the tab returns.
-    function render() {
-      if (document.hidden) {
-        state.lastFrameTime = 0;
-        return;
-      }
-      const now = performance.now();
-      const minFrameMs = 1000 / TRACE_RENDER_FPS;
-      if (state.lastRenderTime && now - state.lastRenderTime < minFrameMs) return;
-      state.lastRenderTime = now;
-      if (!state.lastFrameTime) state.lastFrameTime = now;
-      const dt = now - state.lastFrameTime;
-      state.lastFrameTime = now;
+    function render(dt) {
       state.heroWarpPhase += dt * state.heroWarpSpeed;
-      updateBottomAnimation();
+      bottomSectionController.update();
       mediaBackRenderer.clear();
       mediaFrontRenderer.clear();
       const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
@@ -1181,7 +1003,7 @@ export default function TraceDream() {
       if (drawBottomGhost) {
         bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
       }
-      if (pathControlsOpenRef.current || pathEditorController.hasActivePoint()) pathEditorController.update();
+      pathEditorController.update();
       if (!mainTraceRenderer.draw()) return;
       if (drawBottomGhost) bottomGhostRenderer.draw();
       const creativityScreenTop = state.creativitySectionStart - state.scrollY + state.height * 0.18;
@@ -1233,6 +1055,7 @@ export default function TraceDream() {
     }
 
     const inputs = controls.inputs;
+    const traceScheduler = createTraceScheduler({ onFrame: render });
 
     inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
     creativityGapRange?.addEventListener("input", rebuildCreativityFromControls);
@@ -1242,7 +1065,7 @@ export default function TraceDream() {
     syncPortalConfigExport();
     loadPortalImages();
     loadBottomVideo();
-    gsap.ticker.add(render);
+    traceScheduler.start();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
     traceViewport?.addEventListener("pointerdown", portalInteraction.onPointerDown);
@@ -1255,11 +1078,11 @@ export default function TraceDream() {
     pathExportBtn?.addEventListener("click", pathEditorController.syncExport);
     pathPresetButtons.forEach((button) => button.addEventListener("click", pathEditorController.onPresetClick));
     resize();
-    render();
+    render(0);
 
     return () => {
       cancelled = true;
-      gsap.ticker.remove(render);
+      traceScheduler.stop();
       gsap.killTweensOf(state);
       gsap.killTweensOf(bottomAnimation);
       traceViewport?.removeEventListener("pointerdown", portalInteraction.onPointerDown);
@@ -1321,8 +1144,8 @@ export default function TraceDream() {
           <canvas ref={bottomCanvasRef} className="bottom-ui-canvas" />
           <svg
             id="creativityPathEditor"
-            className={`path-editor${pathControlsOpen ? "" : " is-hidden"}`}
-            aria-hidden="true"
+            className="path-editor"
+            aria-hidden="false"
           >
             <path data-path-line d="" />
             <line data-handle-a x1="0" y1="0" x2="0" y2="0" />

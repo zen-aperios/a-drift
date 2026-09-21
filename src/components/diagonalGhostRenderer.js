@@ -166,7 +166,9 @@ export function createDiagonalGhostRenderer({
     const { canvas, width, height } = getGlyphCanvas(stamp.letter, solid);
     const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
     const stripHeight = 1;
-    const basePhase = (stamp.warpPhase || 0) + state.heroWarpPhase;
+    // IN-CREATIVITY keeps the same spatial warp while scrolling; only the
+    // path/reveal changes over time. This matches the static alphabet warp.
+    const basePhase = stamp.warpPhase || 0;
     const warpStrength = solid ? 0.58 : 0.72 + fade * 0.28;
 
     ctx.save();

@@ -108,7 +108,7 @@ export default function TraceDream() {
 
     function syncLabels() {
       setText("fontSizeVal", `${Math.round(state.fontSize)}px`);
-      setText("rowHeightVal", `${Math.round(state.rowGapVh)}vh`);
+      setText("rowGapVal", `${Math.round(state.rowGapVh)}vh`);
       setText("sampleDistanceVal", `${Math.round(state.sampleDistance)}px`);
       setText("maxTrailVal", `${state.maxTrail}`);
       setText("curvePullVal", `${Math.round(state.curvePull)}px`);
@@ -300,17 +300,15 @@ export default function TraceDream() {
       const anchors = [];
       const leftX = state.width * 0.28;
       const rightX = state.width * 0.72;
-      const heroSection = state.height;
-      const letterSection = state.height * (state.rowGapVh / 100);
+      const gap = state.height * (state.rowGapVh / 100);
       const centerWorldY = state.height * 0.5 - state.height * 0.18;
       const heroAnchorX = getCenteredHeroAnchorX();
 
       for (let i = 0; i < letters.length; i += 1) {
-        const stationY = i === 0 ? centerWorldY : centerWorldY + heroSection + letterSection * (i - 1);
-        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, stationY, letters[i], true));
+        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, centerWorldY + gap * i, letters[i], true));
       }
 
-      state.totalHeight = heroSection + letterSection * Math.max(0, letters.length - 1) + state.height;
+      state.totalHeight = gap * Math.max(0, letters.length - 1) + state.height * 1.5;
       scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
     }
@@ -543,7 +541,7 @@ export default function TraceDream() {
       for (let i = 0; i < state.anchors.length; i += 1) {
         const anchorScreenY = state.anchors[i].y - state.targetScrollY + state.height * 0.18;
         const centerY = state.height * 0.5;
-        const revealStartY = centerY + (i === 0 ? state.height : state.height * (state.rowGapVh / 100));
+        const revealStartY = centerY + state.height * (state.rowGapVh / 100);
         const localProgress = i === 0 ? 1 : clamp((revealStartY - anchorScreenY) / (revealStartY - centerY), 0, 1);
         const eased = heroDismissEase(localProgress);
         if (eased <= 0.001) continue;
@@ -620,7 +618,7 @@ export default function TraceDream() {
           <textarea id="lettersInput" rows="3" defaultValue="APERIOS" />
           <label htmlFor="fontSizeRange">Font Size <span id="fontSizeVal" /></label>
           <input id="fontSizeRange" type="range" min="48" max="160" step="1" defaultValue="160" />
-          <label htmlFor="rowGapRange">Row Height <span id="rowHeightVal" /></label>
+          <label htmlFor="rowGapRange">Row Gap <span id="rowGapVal" /></label>
           <input id="rowGapRange" type="range" min="20" max="160" step="1" defaultValue="120" />
         </div>
         <div className="controls__block">

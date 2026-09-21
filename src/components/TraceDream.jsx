@@ -2,12 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import {
   THREE,
-  createImageCanvasTexture,
   createMediaRenderer,
   createNoiseTexture,
-  createPortalMaterial,
-  createPortalMesh,
-  loadPortalImageUrls,
 } from "./portalMedia.js";
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
@@ -25,9 +21,9 @@ import { createTraceScheduler } from "./traceScheduler.js";
 import { createBottomSectionController } from "./bottomSectionController.js";
 import { createPortalEditorController } from "./portalEditorController.js";
 import { createTraceSurfaceController } from "./traceSurfaceController.js";
+import { createHeroLayoutController } from "./heroLayoutController.js";
+import { createPortalAssetController } from "./portalAssetController.js";
 import {
-  BOTTOM_VIDEO_URL,
-  INITIAL_PORTAL_IMAGE_LAYOUT,
   LETTERS,
   PLACEMENT_GRID_COLUMNS,
   PLACEMENT_GRID_ROWS,
@@ -127,7 +123,7 @@ export default function TraceDream() {
       scrollY: 0,
       rawScrollY: 0,
       portalRevealStart: 93,
-      portalRevealDistance: 68,
+      portalRevealDistance: 55,
       portalRevealDuration: 1.3,
       portalShaderIntensity: 0.24,
       portalShaderNoiseScale: 0.75,
@@ -259,7 +255,9 @@ export default function TraceDream() {
       selectedPortalItem: null,
     };
     let portalEditorController;
+    let portalAssetController;
     let surfaceController;
+    let heroLayoutController;
 
     function syncRenderSurfaces() {
       surfaceController?.syncRenderSurfaces();
@@ -267,6 +265,34 @@ export default function TraceDream() {
 
     function syncTraceSpacerHeight() {
       surfaceController?.syncTraceSpacerHeight();
+    }
+
+    function getWarpPhase(x, y) {
+      return heroLayoutController?.getWarpPhase(x, y) || 0;
+    }
+
+    function getRotation(x, y) {
+      return heroLayoutController?.getRotation(x, y) || 0;
+    }
+
+    function createStamp(x, y, letter, solid = false) {
+      return heroLayoutController?.createStamp(x, y, letter, solid);
+    }
+
+    function buildHeroChars() {
+      return heroLayoutController?.buildHeroChars() || [];
+    }
+
+    function buildAnchors() {
+      return heroLayoutController?.buildAnchors() || [];
+    }
+
+    function getTopGhostOffsets() {
+      return heroLayoutController?.getTopGhostOffsets() || [];
+    }
+
+    function getTopGhostPoint(offsets, age) {
+      return heroLayoutController?.getTopGhostPoint(offsets, age) || { x: 0, y: 0 };
     }
 
     surfaceController = createTraceSurfaceController({
@@ -284,6 +310,13 @@ export default function TraceDream() {
       traceViewport,
       getCreativityWorldY,
     });
+    heroLayoutController = createHeroLayoutController({
+      state,
+      ctx,
+      glyphRenderer,
+      getLetters: () => letters,
+      syncCreativitySceneMetrics,
+    });
 
     function syncPortalConfigExport() {
       portalEditorController?.syncConfigExport();
@@ -299,6 +332,10 @@ export default function TraceDream() {
 
     function drawPortalResizeHandles() {
       portalEditorController?.drawResizeHandles();
+    }
+
+    function buildPortalLayout() {
+      portalAssetController?.buildPortalLayout();
     }
     let pendingCreativityRebuild = 0;
     let pendingCreativityEditorUpdate = false;
@@ -318,6 +355,22 @@ export default function TraceDream() {
       blockIsAvailable,
       getNearestAvailablePlacementBlock,
     } = placementLayout;
+    portalAssetController = createPortalAssetController({
+      state,
+      cancelled: () => cancelled,
+      useDomPortalImages,
+      mediaBackRenderer,
+      mediaBackScene,
+      mediaDomBackLayer,
+      mediaDomFrontLayer,
+      noiseTexture,
+      getPlacementGridCells,
+      getPlacementBlock,
+      getPortalFrameForBlock,
+      framesOverlap,
+      getNearestAvailablePlacementBlock,
+      syncPortalConfigExport,
+    });
     const portalInteraction = createPortalInteractionController({
       state,
       traceViewport,
@@ -363,327 +416,6 @@ export default function TraceDream() {
 
     function syncControls() {
       letters = controls.syncControls();
-    }
-
-    function getWarpPhase(x, y) {
-      return x * 0.004 + y * 0.003;
-    }
-
-    function getRotation(x, y) {
-      return (x * 0.0008 - y * 0.0006) * Math.max(state.rotateSpeed, 0);
-    }
-
-    function createStamp(x, y, letter, solid = false) {
-      return {
-        x,
-        y,
-        letter,
-        solid,
-        warpPhase: getWarpPhase(x, y),
-        rotation: state.rotateEnabled ? getRotation(x, y) : 0,
-      };
-    }
-
-    async function loadPortalImages() {
-      const sources = await loadPortalImageUrls(10);
-      if (cancelled) return;
-      state.portalImages = sources.map((src, index) => {
-        const initialPlacement = INITIAL_PORTAL_IMAGE_LAYOUT[index];
-        const item = {
-          src,
-          index,
-          texture: null,
-          mesh: null,
-          material: null,
-          aspect: 0.76,
-          layer: initialPlacement?.layer || "back",
-          x: state.width * 0.5,
-          y: 0,
-          width: 220,
-          height: 290,
-          reveal: {
-            progress: 0,
-            target: 0,
-          },
-        };
-        if (initialPlacement) {
-          item.manualPlacement = {
-            x: item.x,
-            y: item.y,
-            layer: item.layer,
-            span: { ...initialPlacement.span },
-            stretched: Boolean(initialPlacement.stretched),
-            cell: { ...initialPlacement.cell },
-          };
-        }
-        const image = new Image();
-        image.decoding = "async";
-        image.onload = () => {
-          if (cancelled) return;
-          item.aspect = (image.naturalWidth || image.width || 1) / Math.max(1, image.naturalHeight || image.height || 1);
-          if (useDomPortalImages) {
-            image.className = "trace-dom-media";
-            image.alt = "";
-            image.draggable = false;
-            item.domNode = image;
-            (item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer).appendChild(image);
-            buildPortalLayout();
-            return;
-          }
-          const texture = createImageCanvasTexture(image, mediaBackRenderer.capabilities?.maxTextureSize);
-          item.texture = texture;
-          item.material = createPortalMaterial(texture, noiseTexture, state);
-          item.mesh = createPortalMesh(item.material);
-          mediaBackScene.add(item.mesh);
-          buildPortalLayout();
-        };
-        image.src = src;
-        return item;
-      });
-      buildPortalLayout();
-    }
-
-    function loadBottomVideo() {
-      const video = document.createElement("video");
-      video.src = BOTTOM_VIDEO_URL;
-      video.muted = true;
-      video.loop = true;
-      video.playsInline = true;
-      video.autoplay = true;
-      video.preload = "metadata";
-      video.crossOrigin = "anonymous";
-
-      let texture = null;
-      let material = null;
-      let mesh = null;
-      if (useDomPortalImages) {
-        video.className = "trace-dom-media trace-dom-video";
-        mediaDomBackLayer.appendChild(video);
-      } else {
-        texture = new THREE.VideoTexture(video);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        material = createPortalMaterial(texture, noiseTexture, state);
-        mesh = createPortalMesh(material);
-        mediaBackScene.add(mesh);
-      }
-
-      state.bottomVideo = {
-        video,
-        texture,
-        material,
-        mesh,
-        aspect: 16 / 9,
-        domStyle: {},
-        lastPlayAttempt: 0,
-        reveal: {
-          progress: 0,
-          target: 0,
-        },
-      };
-
-      video.addEventListener("loadedmetadata", () => {
-        if (cancelled) return;
-        state.bottomVideo.aspect = (video.videoWidth || 16) / Math.max(1, video.videoHeight || 9);
-      });
-      video.addEventListener("canplay", () => {
-        if (cancelled) return;
-        video.play().catch(() => {});
-      });
-
-      video.play().catch(() => {});
-    }
-
-    function getStampBounds(stamp) {
-      const glyph = glyphRenderer.getGlyphCanvas(stamp.letter, true);
-      return {
-        minX: stamp.x - glyph.width * 0.5,
-        maxX: stamp.x + glyph.width * 0.5,
-        minY: stamp.y - glyph.height * 0.5,
-        maxY: stamp.y + glyph.height * 0.5,
-      };
-    }
-
-    function getHeroGhostWrapBounds() {
-      const stamps = [state.anchors[0], ...state.heroChars].filter(Boolean);
-      const offsets = getTopGhostOffsets();
-      const allBounds = [];
-      stamps.forEach((stamp) => {
-        allBounds.push(getStampBounds(stamp));
-        offsets.forEach((offset) => {
-          allBounds.push(getStampBounds({ ...stamp, x: stamp.x + offset.x, y: stamp.y + offset.y }));
-        });
-      });
-      if (!allBounds.length) {
-        return {
-          width: state.width * 0.64,
-          height: state.fontSize * 1.4,
-        };
-      }
-
-      const minX = Math.min(...allBounds.map((bounds) => bounds.minX));
-      const maxX = Math.max(...allBounds.map((bounds) => bounds.maxX));
-      const minY = Math.min(...allBounds.map((bounds) => bounds.minY));
-      const maxY = Math.max(...allBounds.map((bounds) => bounds.maxY));
-      return {
-        width: maxX - minX,
-        height: maxY - minY,
-      };
-    }
-
-    function buildPortalLayout() {
-      const cells = getPlacementGridCells();
-      if (!cells.length) return;
-      const placedFrames = [];
-      state.portalImages.forEach((item, index) => {
-        const manual = item.manualPlacement;
-        const span = manual?.span || (index === 0 ? { columns: 1, rows: 1 } : { columns: 2, rows: 2 });
-        const preferredCell =
-          index === 0
-            ? cells.find((candidate) => candidate.gapIndex === 0 && candidate.column === 2 && candidate.row === 2)
-            : cells.find(
-                (candidate) =>
-                  candidate.gapIndex === 1 + Math.floor((index - 1) / 2) &&
-                  candidate.column === [0, 2, 4, 1, 3][index % 5] &&
-                  candidate.row === [0, 2, 1, 3][index % 4]
-              );
-        const originCell = manual?.cell
-          ? cells.find(
-              (candidate) =>
-                candidate.gapIndex === manual.cell.gapIndex &&
-                candidate.column === manual.cell.column &&
-                candidate.row === manual.cell.row
-            )
-          : preferredCell || cells[index % cells.length];
-        const preferredBlock = originCell ? getPlacementBlock(originCell, span) : null;
-        const preferredFrame = preferredBlock ? getPortalFrameForBlock(preferredBlock, item, manual?.stretched) : null;
-        const block =
-          preferredBlock && preferredFrame && !placedFrames.some((placedFrame) => framesOverlap(preferredFrame, placedFrame))
-            ? preferredBlock
-            : getNearestAvailablePlacementBlock(preferredBlock?.cx || state.width * 0.5, preferredBlock?.cy || state.height * 0.5, span, item, placedFrames);
-        if (!block) return;
-        const frame = getPortalFrameForBlock(block, item, manual?.stretched);
-        item.width = frame.width;
-        item.height = frame.height;
-        item.x = block.cx;
-        item.y = block.cy - state.height * 0.18;
-        item.layoutBlock = block;
-        item.layoutFrame = frame;
-        placedFrames.push(frame);
-        if (manual) {
-          item.manualPlacement.x = item.x;
-          item.manualPlacement.y = item.y;
-          item.manualPlacement.span = span;
-          item.manualPlacement.stretched = Boolean(manual.stretched);
-        }
-      });
-      syncPortalConfigExport();
-    }
-
-    function buildHeroChars() {
-      const firstAnchor = state.anchors[0];
-      if (!firstAnchor) return [];
-      const phrase = "DREAM";
-      ctx.save();
-      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-
-      let cursorX = firstAnchor.x + getHeroLeadAdvance();
-      const chars = [];
-      Array.from(phrase).forEach((char) => {
-        const advance = char === " " ? state.fontSize * 0.42 : ctx.measureText(char).width;
-        if (char !== " ") chars.push(createStamp(cursorX + advance * 0.5, firstAnchor.y, char, true));
-        cursorX += advance + state.fontSize * 0.015;
-      });
-
-      ctx.restore();
-      return chars;
-    }
-
-    function getHeroLeadAdvance() {
-      ctx.save();
-      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      const aAdvance = ctx.measureText("A").width;
-      ctx.restore();
-      return aAdvance * 0.62 + state.fontSize * 0.42;
-    }
-
-    function getCenteredHeroAnchorX() {
-      ctx.save();
-      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      const leadAdvance = getHeroLeadAdvance();
-      let cursorX = leadAdvance;
-      const bounds = [];
-      const aGlyph = glyphRenderer.getGlyphCanvas("A", true);
-      bounds.push({ x: 0, width: aGlyph.width + state.warpAmount * 2 });
-
-      "DREAM".split("").forEach((char) => {
-        const advance = ctx.measureText(char).width;
-        const glyph = glyphRenderer.getGlyphCanvas(char, true);
-        bounds.push({ x: cursorX + advance * 0.5, width: glyph.width + state.warpAmount * 2 });
-        cursorX += advance + state.fontSize * 0.015;
-      });
-
-      ctx.restore();
-      if (!bounds.length) return state.width * 0.5;
-      const minX = Math.min(...bounds.map((item) => item.x - item.width * 0.5));
-      const maxX = Math.max(...bounds.map((item) => item.x + item.width * 0.5));
-      return state.width * 0.5 - (minX + maxX) * 0.5;
-    }
-
-    function getTopGhostOffsets() {
-      const firstAnchor = state.anchors[0];
-      if (!firstAnchor || !state.ghosts.length) {
-        return Array.from({ length: 5 }, (_, index) => ({
-          x: -state.fontSize * 0.11 * (index + 1),
-          y: state.fontSize * 0.015 * (index + 1),
-        }));
-      }
-
-      return Array.from({ length: 5 }, (_, index) => {
-        const ghost = state.ghosts[index] || state.ghosts[state.ghosts.length - 1];
-        return { x: ghost.x - firstAnchor.x, y: ghost.y - firstAnchor.y };
-      });
-    }
-
-    function getTopGhostPoint(offsets, age) {
-      const headInset = { x: offsets[0].x * 0.28, y: offsets[0].y * 0.28 };
-      const points = [headInset, ...offsets];
-      const clampedAge = clamp(age, 0, points.length - 1);
-      const fromIndex = Math.floor(clampedAge);
-      const toIndex = Math.min(points.length - 1, fromIndex + 1);
-      const localT = clampedAge - fromIndex;
-      return {
-        x: lerp(points[fromIndex].x, points[toIndex].x, localT),
-        y: lerp(points[fromIndex].y, points[toIndex].y, localT),
-      };
-    }
-
-    function buildAnchors() {
-      const anchors = [];
-      const leftX = state.width * 0.28;
-      const rightX = state.width * 0.72;
-      const gap = state.height * (state.rowGapVh / 100);
-      const topOffset = state.height * 0.32;
-      const heroY = state.height * 0.5 - state.height * 0.18;
-      const heroAnchorX = getCenteredHeroAnchorX();
-
-      for (let i = 0; i < letters.length; i += 1) {
-        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true));
-      }
-
-      const lastAnchorY = anchors[anchors.length - 1]?.y || topOffset + gap * Math.max(0, letters.length - 1);
-      state.bottomSectionStart = lastAnchorY + 120;
-      const bottomVideoHeight = (state.width * 0.95) / (state.bottomVideo?.aspect || 16 / 9);
-      const bottomMargin = 48;
-      const creativityGap = 192;
-      state.bottomSectionHeight = Math.max(state.height * 1.05, bottomVideoHeight + state.height * 0.35 + bottomMargin);
-      const bottomVideoBottom = state.bottomSectionStart + state.height * 0.54 + bottomVideoHeight * 0.5;
-      syncCreativitySceneMetrics(bottomVideoBottom + creativityGap);
-      state.totalHeight = state.creativitySectionStart + state.creativitySectionHeight + bottomMargin;
-      return anchors;
     }
 
     function getCreativityNodeYBounds() {
@@ -1013,8 +745,8 @@ export default function TraceDream() {
     portalConfigExportBtn?.addEventListener("click", copyPortalConfig);
     syncControls();
     syncPortalConfigExport();
-    loadPortalImages();
-    loadBottomVideo();
+    portalAssetController.loadPortalImages();
+    portalAssetController.loadBottomVideo();
     traceScheduler.start();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
@@ -1056,23 +788,7 @@ export default function TraceDream() {
       glyphRenderer.clearCache();
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();
-      state.portalImages.forEach((item) => {
-        item.domNode?.remove();
-        item.mesh?.parent?.remove(item.mesh);
-        item.mesh?.geometry?.dispose();
-        item.material?.dispose();
-        item.texture?.dispose();
-      });
-      if (state.bottomVideo) {
-        state.bottomVideo.video.pause();
-        state.bottomVideo.video.remove();
-        state.bottomVideo.video.removeAttribute("src");
-        state.bottomVideo.video.load();
-        state.bottomVideo.mesh?.parent?.remove(state.bottomVideo.mesh);
-        state.bottomVideo.mesh?.geometry?.dispose();
-        state.bottomVideo.material?.dispose();
-        state.bottomVideo.texture?.dispose();
-      }
+      portalAssetController.dispose();
       noiseTexture.dispose();
       mediaBackRenderer.dispose();
       mediaFrontRenderer.dispose();
@@ -1190,7 +906,7 @@ export default function TraceDream() {
           <label htmlFor="portalRevealStartRange">Reveal Start <span id="portalRevealStartVal" /></label>
           <input id="portalRevealStartRange" type="range" min="45" max="115" step="1" defaultValue="93" />
           <label htmlFor="portalRevealDistanceRange">Reveal Distance <span id="portalRevealDistanceVal" /></label>
-          <input id="portalRevealDistanceRange" type="range" min="15" max="90" step="1" defaultValue="68" />
+          <input id="portalRevealDistanceRange" type="range" min="15" max="90" step="1" defaultValue="55" />
           <label htmlFor="portalRevealDurationRange">Reveal Ease <span id="portalRevealDurationVal" /></label>
           <input id="portalRevealDurationRange" type="range" min="0.05" max="2" step="0.05" defaultValue="1.3" />
         </div>

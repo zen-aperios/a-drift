@@ -372,7 +372,10 @@ export default function TraceDream() {
       for (let i = 0; i < state.anchors.length - 1; i += 1) {
         const segment = sampleCurve(state.anchors[i], state.anchors[i + 1], i);
         if (i > 0) segment.shift();
-        chain.push(...segment);
+        chain.push(...segment.map((point) => ({
+          ...point,
+          letter: letters[i + 1] || letters[i],
+        })));
       }
 
       const ghosts = [];
@@ -382,8 +385,7 @@ export default function TraceDream() {
           const t = totalGhosts === 1 ? 0 : i / (totalGhosts - 1);
           const idx = Math.round(t * (chain.length - 1));
           const point = chain[idx];
-          const letterIndex = clamp(Math.round(t * (state.anchors.length - 1)), 0, state.anchors.length - 1);
-          ghosts.push(createStamp(point.x, point.y, letters[letterIndex], false));
+          ghosts.push(createStamp(point.x, point.y, point.letter, false));
         }
       }
 

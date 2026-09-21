@@ -16,18 +16,37 @@ export function createPortalRuntimeController({ state, gsap }) {
   }
 
   function syncPortalMaterial(item, width, height, progress, timeOffset = 0) {
-    item.material.uniforms.uProgress.value = progress;
-    item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
+    const cache = item.portalUniformCache || (item.portalUniformCache = {});
+    if (cache.progress !== progress) {
+      item.material.uniforms.uProgress.value = progress;
+      cache.progress = progress;
+    }
+    if (cache.intensity !== state.portalShaderIntensity) {
+      item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
+      cache.intensity = state.portalShaderIntensity;
+    }
     item.material.uniforms.uTime.value = state.heroWarpPhase + timeOffset;
-    item.material.uniforms.uNoiseScale.value = state.portalShaderNoiseScale;
-    item.material.uniforms.uNoiseSpeed.value = state.portalShaderNoiseSpeed;
-    item.material.uniforms.uSoftness.value = state.portalShaderSoftness;
-    item.material.uniforms.uNoiseAmount.value = state.portalShaderNoiseAmount;
-    item.material.uniforms.uFlowX.value = state.portalShaderFlowX;
-    item.material.uniforms.uFlowY.value = state.portalShaderFlowY;
-    item.material.uniforms.uFlowNoiseY.value = state.portalShaderFlowNoiseY;
-    item.material.uniforms.uZoom.value = state.portalShaderZoom;
-    item.material.uniforms.uCanvasResolution.value.set(width, height);
+    const staticUniforms = [
+      ["uNoiseScale", "portalShaderNoiseScale"],
+      ["uNoiseSpeed", "portalShaderNoiseSpeed"],
+      ["uSoftness", "portalShaderSoftness"],
+      ["uNoiseAmount", "portalShaderNoiseAmount"],
+      ["uFlowX", "portalShaderFlowX"],
+      ["uFlowY", "portalShaderFlowY"],
+      ["uFlowNoiseY", "portalShaderFlowNoiseY"],
+      ["uZoom", "portalShaderZoom"],
+    ];
+    staticUniforms.forEach(([uniformName, stateKey]) => {
+      const value = state[stateKey];
+      if (cache[stateKey] === value) return;
+      item.material.uniforms[uniformName].value = value;
+      cache[stateKey] = value;
+    });
+    const resolutionKey = `${width}|${height}`;
+    if (cache.resolutionKey !== resolutionKey) {
+      item.material.uniforms.uCanvasResolution.value.set(width, height);
+      cache.resolutionKey = resolutionKey;
+    }
   }
 
   function getDocumentY(screenY) {

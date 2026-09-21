@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import gsap from "gsap";
 import Lenis from "lenis";
 import TraceDream from "./components/TraceDream.jsx";
 
@@ -9,18 +10,14 @@ export default function App() {
       smoothWheel: true,
       wheelMultiplier: 1,
       touchMultiplier: 1,
+      autoRaf: false,
     });
 
-    let rafId = 0;
-    const raf = (time) => {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    };
-
-    rafId = requestAnimationFrame(raf);
+    const tick = (time) => lenis.raf(time * 1000);
+    gsap.ticker.add(tick);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      gsap.ticker.remove(tick);
       lenis.destroy();
     };
   }, []);

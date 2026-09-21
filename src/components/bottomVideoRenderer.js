@@ -88,7 +88,13 @@ export function createBottomVideoRenderer({
     item.mesh.position.set(frame.x, getThreeDocumentY(frame.documentY), 0);
     item.mesh.scale.set(frame.width, frame.height, 1);
     syncPortalMaterial(item, frame.width, frame.height, eased, 1.7);
-    item.material.uniforms.uImageResolution.value.set(item.video.videoWidth || 16, item.video.videoHeight || 9);
+    const videoWidth = item.video.videoWidth || 16;
+    const videoHeight = item.video.videoHeight || 9;
+    const resolutionKey = `${videoWidth}|${videoHeight}`;
+    if (item.videoResolutionKey !== resolutionKey) {
+      item.material.uniforms.uImageResolution.value.set(videoWidth, videoHeight);
+      item.videoResolutionKey = resolutionKey;
+    }
     return true;
   }
 

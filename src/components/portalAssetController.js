@@ -24,9 +24,22 @@ export function createPortalAssetController({
   getNearestAvailablePlacementBlock,
   syncPortalConfigExport,
 }) {
+  let lastLayoutKey = "";
+
   function buildPortalLayout() {
     const cells = getPlacementGridCells();
     if (!cells.length) return;
+    const layoutKey = JSON.stringify({
+      width: state.width,
+      height: state.height,
+      anchors: state.anchors.map((anchor) => [anchor.x, anchor.y]),
+      images: state.portalImages.map((item) => ({
+        aspect: item.aspect,
+        manual: item.manualPlacement,
+      })),
+    });
+    if (layoutKey === lastLayoutKey) return;
+    lastLayoutKey = layoutKey;
     const placedFrames = [];
     state.portalImages.forEach((item, index) => {
       const manual = item.manualPlacement;

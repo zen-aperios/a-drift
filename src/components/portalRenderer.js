@@ -84,9 +84,6 @@ export function createPortalRenderer({
       item.mesh.position.set(item.x, getThreeDocumentY(documentY), 0);
       item.mesh.scale.set(width, height, 1);
       syncPortalMaterial(item, width, height, eased, item.index * 0.35);
-      if (item.texture?.image) {
-        item.material.uniforms.uImageResolution.value.set(item.texture.image.width || 1, item.texture.image.height || 1);
-      }
     });
 
     const hasBottomVideo = drawBottomVideo();

@@ -14,12 +14,14 @@ The highest-impact long-term optimization is to keep the document flow unchanged
 - Bottom ghost rendering is gated when its section is far outside the viewport.
 - Glyph canvases are cached after creation.
 - Portal images use WebP assets.
+- Lenis and trace rendering share the GSAP ticker.
+- Portal shader uniforms and image layout inputs are cached when unchanged.
 
 ## Recommended Optimization Order
 
-1. Remove unused source assets and dead CSS.
-2. Cache portal layout and shader values that do not change every frame.
-3. Share the Lenis and GSAP frame clocks.
+1. ~~Remove unused source assets and dead CSS.~~
+2. ~~Cache portal layout and shader values that do not change every frame.~~
+3. ~~Share the Lenis and GSAP frame clocks.~~
 4. Profile Chrome and Firefox with the current build.
 5. Migrate full-document render surfaces to viewport-sized windows.
 

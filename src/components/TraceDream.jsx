@@ -306,7 +306,7 @@ export default function TraceDream() {
       const heroAnchorX = getCenteredHeroAnchorX();
 
       for (let i = 0; i < letters.length; i += 1) {
-        const stationY = i === 0 ? centerWorldY : centerWorldY + heroSection + letterSection * (i - 0.5);
+        const stationY = i === 0 ? centerWorldY : centerWorldY + heroSection + letterSection * (i - 1);
         anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, stationY, letters[i], true));
       }
 

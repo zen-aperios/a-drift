@@ -2,39 +2,45 @@ import { clamp, lerp, seededRandom } from "./traceMath.js";
 
 export function applyPortalLayout({ portalImages, anchors, segments, height, width, rowGapVh, heroWrap }) {
   if (!portalImages.length || !anchors.length) return;
-  const gap = height * (rowGapVh / 100);
   const targetWidth = clamp(heroWrap.width * 0.42, width * 0.22, width * 0.44);
-  const firstSegment = segments[0];
-  const firstPoints = firstSegment?.points || [];
-  const firstMiddle = firstPoints[Math.floor(firstPoints.length * 0.5)] || anchors[1] || anchors[0];
-  const lowerStart = firstMiddle.y + gap * 0.72;
-  const lowerEnd = (anchors[anchors.length - 1]?.y || lowerStart + gap * 3) - gap * 0.18;
-  const remaining = Math.max(1, portalImages.length - 1);
-  const columns = [-0.7, 0.7, 0, -1.05, 1.05];
+  const padY = 160 * 0.55;
+  const gapCount = Math.max(1, anchors.length - 1);
+  const columns = [2, 0, 4, 1, 3];
+  const rows = [1, 0, 2];
+  const gridLeft = width * 0.08;
+  const gridWidth = width * 0.84;
+  const columnCount = 5;
+  const rowCount = 3;
 
   portalImages.forEach((item, index) => {
-    const forceTrailCenter = index === 5;
-    const column = forceTrailCenter ? 0 : columns[index % columns.length];
-    const rowT = index === 0 ? 0 : (index - 1) / Math.max(1, remaining - 1);
-    const rowY = index === 0 ? firstMiddle.y : lerp(lowerStart, lowerEnd, rowT);
-    const pathSegmentIndex = clamp(Math.round(rowT * Math.max(0, segments.length - 1)), 0, Math.max(0, segments.length - 1));
-    const segment = segments[forceTrailCenter ? 3 : pathSegmentIndex];
-    const points = segment?.points || [];
-    const pathPoint =
-      index === 0
-        ? firstMiddle
-        : points[Math.floor((forceTrailCenter ? 0.5 : lerp(0.28, 0.72, seededRandom(index, 7))) * Math.max(0, points.length - 1))] ||
-          anchors[Math.min(index, anchors.length - 1)] ||
-          anchors[0];
-    const sideOffset = column * clamp(heroWrap.width * 0.36, 170, width * 0.38);
-    const jitterX = index === 0 || forceTrailCenter ? 0 : lerp(-0.08, 0.08, seededRandom(index, 8)) * heroWrap.width;
-    const jitterY = index === 0 || forceTrailCenter ? 0 : lerp(-0.14, 0.14, seededRandom(index, 9)) * gap;
-
-    item.x = clamp(pathPoint.x + sideOffset + jitterX, width * 0.12, width * 0.88);
-    item.y = forceTrailCenter ? pathPoint.y : rowY + jitterY;
+    const gapIndex = index % gapCount;
+    const from = anchors[gapIndex];
+    const to = anchors[gapIndex + 1] || anchors[gapIndex];
+    const gapTop = Math.min(from.y, to.y) + padY;
+    const gapBottom = Math.max(from.y, to.y) - padY;
+    const gapHeight = Math.max(80, gapBottom - gapTop);
+    const column = columns[index % columns.length];
+    const row = rows[Math.floor(index / gapCount) % rows.length];
+    const cellX1 = gridLeft + (gridWidth * column) / columnCount;
+    const cellX2 = gridLeft + (gridWidth * (column + 1)) / columnCount;
+    const cellY1 = gapTop + (gapHeight * row) / rowCount;
+    const cellY2 = gapTop + (gapHeight * (row + 1)) / rowCount;
+    item.x = clamp((cellX1 + cellX2) * 0.5, width * 0.12, width * 0.88);
+    item.y = (cellY1 + cellY2) * 0.5;
     const featuredScale = index === 0 ? 1.2 : index === 1 ? 1.1 : 1;
-    item.width = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4)) * featuredScale;
+    const cellWidth = cellX2 - cellX1;
+    const cellHeight = cellY2 - cellY1;
+    const randomWidth = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4)) * featuredScale;
+    const maxCellWidth = cellWidth * 0.88;
+    const maxCellHeightWidth = cellHeight * Math.max(0.1, item.aspect) * 0.88;
+    item.width = Math.min(randomWidth, maxCellWidth, maxCellHeightWidth);
     item.height = item.width / Math.max(0.1, item.aspect);
     item.layer = index === 0 || index % 4 === 2 || index % 5 === 0 ? "front" : "back";
+
+    if (item.manualPlacement) {
+      item.x = item.manualPlacement.x;
+      item.y = item.manualPlacement.y;
+      item.layer = item.manualPlacement.layer || item.layer;
+    }
   });
 }

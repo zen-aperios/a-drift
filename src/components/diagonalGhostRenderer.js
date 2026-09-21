@@ -211,7 +211,7 @@ export function createDiagonalGhostRenderer({
         const scaledFontSize = CONFIG.fontSize * (ghost.scale ?? 1);
         if (screenY < -scaledFontSize * 1.5 || screenY > state.height + scaledFontSize * 1.5) continue;
         const fade = visibleCount <= 1 ? 1 : 1 - index / Math.max(1, visibleCount - 1);
-        drawGlyph(ghost, screenY, false, index, Math.max(visibleCount, 1), CONFIG.ghostOpacity * (0.2 + fade * 0.8));
+        drawGlyph(ghost, screenY + state.rawScrollY, false, index, Math.max(visibleCount, 1), CONFIG.ghostOpacity * (0.2 + fade * 0.8));
       }
     });
 
@@ -233,8 +233,8 @@ export function createDiagonalGhostRenderer({
       const orderedProgress = index === 0 ? 1 : clamp((chainProgress - (index - 1) / Math.max(1, state.creativityStamps.length - 1)) * Math.max(1, state.creativityStamps.length - 1), 0, 1);
       const eased = heroDismissEase(Math.max(scrubProgress, orderedProgress));
       if (eased <= 0.001) return;
-      drawGlyph(stamp, screenY, false, index, state.creativityStamps.length, eased * CONFIG.ghostOpacity * 0.58);
-      drawGlyph(stamp, screenY, true, index, state.creativityStamps.length, eased);
+      drawGlyph(stamp, screenY + state.rawScrollY, false, index, state.creativityStamps.length, eased * CONFIG.ghostOpacity * 0.58);
+      drawGlyph(stamp, screenY + state.rawScrollY, true, index, state.creativityStamps.length, eased);
     });
     ctx.restore();
   }

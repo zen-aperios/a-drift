@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-const PORTAL_IMAGE_LOADERS = import.meta.glob("../../portal-images/*.{jpg,jpeg,png,webp,gif}", {
+const PORTAL_IMAGE_LOADERS = import.meta.glob("../../portal-images/*.webp", {
   import: "default",
   query: "?url",
 });

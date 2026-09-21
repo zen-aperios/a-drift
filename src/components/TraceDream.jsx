@@ -19,9 +19,9 @@ import { createTraceControls } from "./traceControls.js";
 import { createPortalInteractionController } from "./portalInteractionController.js";
 import { createPlacementLayout } from "./placementLayout.js";
 import { createPathEditorController } from "./pathEditorController.js";
-import { AlphabetGlyph } from "./AlphabetGlyph.jsx";
+import { createGlyphRenderer } from "./glyphRenderer.js";
+import { AlphabetGenerator } from "./AlphabetGenerator.jsx";
 import {
-  ALPHABET_LETTERS,
   BOTTOM_VIDEO_URL,
   INITIAL_PORTAL_IMAGE_LAYOUT,
   LETTERS,
@@ -32,16 +32,6 @@ import {
 const TRACE_DPR_CAP = 1.25;
 const TRACE_RENDER_FPS = 40;
 
-function hexToRgba(hex, alpha) {
-  const safe = hex.replace("#", "");
-  const normalized = safe.length === 3 ? safe.split("").map((char) => char + char).join("") : safe;
-  const int = parseInt(normalized, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 export default function TraceDream() {
   const canvasRef = useRef(null);
   const bottomCanvasRef = useRef(null);
@@ -50,54 +40,13 @@ export default function TraceDream() {
   const mediaFrontCanvasRef = useRef(null);
   const mediaDomBackLayerRef = useRef(null);
   const mediaDomFrontLayerRef = useRef(null);
-  const alphabetSectionRef = useRef(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [pathControlsOpen, setPathControlsOpen] = useState(false);
   const pathControlsOpenRef = useRef(pathControlsOpen);
-  const [alphabetGhostDirection, setAlphabetGhostDirection] = useState(148);
-  const [alphabetWarpChaos, setAlphabetWarpChaos] = useState(0.62);
-  const [alphabetActive, setAlphabetActive] = useState(false);
 
   useEffect(() => {
     pathControlsOpenRef.current = pathControlsOpen;
   }, [pathControlsOpen]);
-
-  useEffect(() => {
-    const section = alphabetSectionRef.current;
-    if (!section) return undefined;
-    let hasRevealed = false;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const isNear = entry.isIntersecting;
-        setAlphabetActive(isNear);
-        if (!isNear || hasRevealed) return;
-        hasRevealed = true;
-        gsap.fromTo(
-          section.querySelectorAll(".alphabet-cell"),
-          { autoAlpha: 0, y: 18 },
-          {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.7,
-            ease: "power3.out",
-            stagger: 0.025,
-            overwrite: true,
-          }
-        );
-      },
-      {
-        root: null,
-        rootMargin: "360px 0px 360px 0px",
-        threshold: 0.01,
-      }
-    );
-    observer.observe(section);
-
-    return () => {
-      observer.disconnect();
-      gsap.killTweensOf(section.querySelectorAll(".alphabet-cell"));
-    };
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -125,7 +74,6 @@ export default function TraceDream() {
     const noiseTexture = createNoiseTexture(seededRandom);
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
-    const glyphCache = new Map();
     let cancelled = false;
     const state = {
       width: 0,
@@ -215,6 +163,13 @@ export default function TraceDream() {
       exit: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
+    const glyphRenderer = createGlyphRenderer({
+      ctx,
+      state,
+      heroDismissEase,
+      scrollCue,
+      getTopGhostPoint,
+    });
     const bottomVideoRenderer = createBottomVideoRenderer({
       ctx,
       state,
@@ -263,9 +218,9 @@ export default function TraceDream() {
       heroDismissEase,
       getTopGhostOffsets,
       getHeroWarpOptions,
-      drawStamp,
-      drawAnimatedGhostStack,
-      drawScrollCue,
+      drawStamp: glyphRenderer.drawStamp,
+      drawAnimatedGhostStack: glyphRenderer.drawAnimatedGhostStack,
+      drawScrollCue: glyphRenderer.drawScrollCue,
       triggerAnchorReveal,
       drawBetweenGhostsAndStamps: () => {
         portalRenderer.draw();
@@ -353,57 +308,6 @@ export default function TraceDream() {
 
     function syncControls() {
       letters = controls.syncControls();
-    }
-
-    function getLetterMetrics(letter) {
-      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const metrics = ctx.measureText(letter);
-      const left = -(metrics.actualBoundingBoxLeft || state.fontSize * 0.28);
-      const right = metrics.actualBoundingBoxRight || state.fontSize * 0.28;
-      const top = -(metrics.actualBoundingBoxAscent || state.fontSize * 0.5);
-      const bottom = metrics.actualBoundingBoxDescent || state.fontSize * 0.18;
-      return { left, right, top, bottom };
-    }
-
-    function getGlyphCanvas(letter, solid, overrideColor) {
-      const color = overrideColor || (solid ? state.fillColor : state.ghostColor);
-      const key = `${letter}|${solid ? "fill" : "stroke"}|${state.fontSize}|${state.ghostLineWidth}|${
-        color
-      }`;
-      if (glyphCache.has(key)) return glyphCache.get(key);
-
-      const metrics = getLetterMetrics(letter);
-      const pad = state.fontSize * 0.3;
-      const width = Math.ceil(metrics.right - metrics.left + pad * 2);
-      const height = Math.ceil(metrics.bottom - metrics.top + pad * 2);
-      const offscreen = document.createElement("canvas");
-      offscreen.width = Math.max(1, Math.ceil(width * state.dpr));
-      offscreen.height = Math.max(1, Math.ceil(height * state.dpr));
-      const octx = offscreen.getContext("2d");
-      octx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-      octx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      octx.textAlign = "center";
-      octx.textBaseline = "middle";
-      octx.lineJoin = "miter";
-      octx.lineCap = "square";
-      octx.setLineDash([]);
-
-      const drawX = width * 0.5;
-      const drawY = height * 0.5;
-      if (solid) {
-        octx.fillStyle = color;
-        octx.fillText(letter, drawX, drawY);
-      } else {
-        octx.strokeStyle = color;
-        octx.lineWidth = state.ghostLineWidth;
-        octx.strokeText(letter, drawX, drawY);
-      }
-
-      const cached = { canvas: offscreen, width, height };
-      glyphCache.set(key, cached);
-      return cached;
     }
 
     function getWarpPhase(x, y) {
@@ -537,7 +441,7 @@ export default function TraceDream() {
     }
 
     function getStampBounds(stamp) {
-      const glyph = getGlyphCanvas(stamp.letter, true);
+      const glyph = glyphRenderer.getGlyphCanvas(stamp.letter, true);
       return {
         minX: stamp.x - glyph.width * 0.5,
         maxX: stamp.x + glyph.width * 0.5,
@@ -703,12 +607,12 @@ export default function TraceDream() {
       const leadAdvance = getHeroLeadAdvance();
       let cursorX = leadAdvance;
       const bounds = [];
-      const aGlyph = getGlyphCanvas("A", true);
+      const aGlyph = glyphRenderer.getGlyphCanvas("A", true);
       bounds.push({ x: 0, width: aGlyph.width + state.warpAmount * 2 });
 
       "DREAM".split("").forEach((char) => {
         const advance = ctx.measureText(char).width;
-        const glyph = getGlyphCanvas(char, true);
+        const glyph = glyphRenderer.getGlyphCanvas(char, true);
         bounds.push({ x: cursorX + advance * 0.5, width: glyph.width + state.warpAmount * 2 });
         cursorX += advance + state.fontSize * 0.015;
       });
@@ -1016,7 +920,7 @@ export default function TraceDream() {
     }
 
     function rebuildLayout() {
-      glyphCache.clear();
+      glyphRenderer.clearCache();
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();
       state.anchors = buildAnchors();
@@ -1078,125 +982,10 @@ export default function TraceDream() {
       rebuildLayout();
     }
 
-    function drawWarpedGlyph(stamp, solid, index, total, options = {}) {
-      const { canvas: glyphCanvas, width, height } = getGlyphCanvas(stamp.letter, solid, options.color);
-      const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
-      const opacity = options.opacity ?? (solid ? 1 : Math.max(0, state.ghostOpacity * (0.22 + fade * 0.78)));
-      const warpStrength = options.warpStrength ?? (0.28 + fade * 0.72);
-      const warpFrequency = options.warpFrequency ?? state.warpFrequency;
-      const stripHeight = 1;
-      const basePhase = stamp.warpPhase + state.heroWarpPhase + (options.warpPhaseOffset ?? 0);
-      const depth = options.depth ?? 0;
-      const depthScale = options.scale ?? (1 + depth * 0.08);
-      const depthLift = depth * state.fontSize * 0.12;
-      const documentY = stamp.y + state.height * 0.18;
-
-      ctx.save();
-      ctx.translate(stamp.x, documentY - depthLift);
-      if (state.rotateEnabled) ctx.rotate(stamp.rotation);
-      if (depthScale !== 1) ctx.scale(depthScale, depthScale);
-      ctx.translate(-width * 0.5, -height * 0.5);
-      ctx.globalAlpha = opacity;
-
-      for (let y = 0; y < height; y += stripHeight) {
-        const sliceH = Math.min(stripHeight, height - y);
-        const yNorm = y / height;
-        const bendA = Math.sin(yNorm * Math.PI * 2 * warpFrequency + basePhase);
-        const bendB = Math.cos(yNorm * Math.PI * warpFrequency * 0.65 - basePhase * 0.7);
-        const bend = (bendA * 0.72 + bendB * 0.28) * state.warpAmount * warpStrength;
-        ctx.drawImage(glyphCanvas, 0, y * state.dpr, glyphCanvas.width, sliceH * state.dpr, bend, y, width, sliceH + 2);
-      }
-
-      ctx.restore();
-    }
-
-    function drawStamp(stamp, solid, index, total, options = {}) {
-      const documentY = stamp.y + state.height * 0.18;
-      const screenY = documentY - state.rawScrollY;
-      if (screenY < -state.fontSize * 1.5 || screenY > state.height + state.fontSize * 1.5) return;
-      if (state.warpEnabled) {
-        drawWarpedGlyph(stamp, solid, index, total, options);
-        return;
-      }
-
-      ctx.save();
-      const depth = options.depth ?? 0;
-      const depthScale = options.scale ?? (1 + depth * 0.08);
-      const depthLift = depth * state.fontSize * 0.12;
-      ctx.translate(stamp.x, documentY - depthLift);
-      if (state.rotateEnabled) ctx.rotate(stamp.rotation);
-      if (depthScale !== 1) ctx.scale(depthScale, depthScale);
-      ctx.font = `900 ${state.fontSize}px Helvetica, Arial, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.lineJoin = "miter";
-      ctx.lineCap = "square";
-      ctx.setLineDash([]);
-      if (options.opacity !== undefined) ctx.globalAlpha = options.opacity;
-
-      if (solid) {
-        ctx.fillStyle = options.color || state.fillColor;
-        ctx.fillText(stamp.letter, 0, 0);
-      } else {
-        const fade = total <= 1 ? 1 : 1 - index / Math.max(total - 1, 1);
-        ctx.strokeStyle = options.color ? hexToRgba(options.color, 1) : hexToRgba(state.ghostColor, state.ghostOpacity * (0.22 + fade * 0.78));
-        ctx.lineWidth = state.ghostLineWidth;
-        ctx.strokeText(stamp.letter, 0, 0);
-      }
-      ctx.restore();
-    }
-
     function getHeroWarpOptions() {
       return {
         warpFrequency: state.warpFrequency,
       };
-    }
-
-    function drawAnimatedGhostStack(stamp, offsets, opacityMultiplier = 1, yLift = 0, options = {}) {
-      const phase = (performance.now() * 0.00042 + stamp.x * 0.0002) % 1;
-      for (let i = 5; i >= 1; i -= 1) {
-        const slot = 5 - i;
-        const age = slot + phase;
-        const point = getTopGhostPoint(offsets, age);
-        const normalizedAge = age / 5;
-        drawStamp(
-          { ...stamp, x: stamp.x + point.x, y: stamp.y + point.y - yLift, warpPhase: stamp.warpPhase },
-          false,
-          i - 1,
-          5,
-          {
-            ...options,
-            opacity: Math.pow(1 - normalizedAge, 1.35) * opacityMultiplier,
-            warpStrength: 1,
-          }
-        );
-      }
-
-      drawStamp({ ...stamp, y: stamp.y - yLift }, true, 0, 1, {
-        ...options,
-        opacity: opacityMultiplier,
-      });
-    }
-
-    function drawScrollCue(opacityMultiplier = 1) {
-      const opacity = clamp(opacityMultiplier, 0, 1);
-      if (opacity <= 0.001) return;
-
-      const text = "SCROLL";
-      const x = state.width * 0.5;
-      const y = state.height - 16;
-      ctx.save();
-      ctx.font = `300 14px "Geist", "Neue Haas Grotesk Text", "Helvetica Neue", Arial, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "alphabetic";
-      ctx.letterSpacing = "0px";
-      ctx.fillStyle = state.fillColor;
-
-      const exit = clamp(scrollCue.exit, 0, 1);
-      const fade = heroDismissEase(clamp((exit - 0.82) / 0.18, 0, 1));
-      ctx.globalAlpha = opacity * (1 - fade) * 0.9;
-      ctx.fillText(text, x, y);
-      ctx.restore();
     }
 
     function drawPlacementGrid() {
@@ -1491,7 +1280,7 @@ export default function TraceDream() {
       if (pendingCreativityRebuild) cancelAnimationFrame(pendingCreativityRebuild);
       rebuildBtn.removeEventListener("click", rebuildLayout);
       portalConfigExportBtn?.removeEventListener("click", copyPortalConfig);
-      glyphCache.clear();
+      glyphRenderer.clearCache();
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();
       state.portalImages.forEach((item) => {
@@ -1699,43 +1488,7 @@ export default function TraceDream() {
         </div>
           </aside>
         </div>
-        <section ref={alphabetSectionRef} className="alphabet-generator" aria-label="Alphabet generator">
-          <div className="alphabet-generator__controls" aria-label="Alphabet controls">
-            <label className="alphabet-slider">
-              <span>Ghost Direction</span>
-              <input
-                type="range"
-                min="0"
-                max="360"
-                step="1"
-                value={alphabetGhostDirection}
-                onChange={(event) => setAlphabetGhostDirection(Number(event.target.value))}
-              />
-            </label>
-            <label className="alphabet-slider">
-              <span>Warp Chaos</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={alphabetWarpChaos}
-                onChange={(event) => setAlphabetWarpChaos(Number(event.target.value))}
-              />
-            </label>
-          </div>
-          <div className="alphabet-generator__grid">
-            {ALPHABET_LETTERS.map((letter, index) => (
-              <AlphabetGlyph
-                key={letter}
-                letter={letter}
-                index={index}
-                ghostDirection={alphabetGhostDirection}
-                warpChaos={alphabetWarpChaos}
-              />
-            ))}
-          </div>
-        </section>
+        <AlphabetGenerator />
       </div>
     </section>
   );

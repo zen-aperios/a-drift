@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import footerAnimation from "../../runman01.json";
 import {
   THREE,
   createMediaRenderer,
@@ -37,6 +38,83 @@ import {
 } from "./traceConfig.js";
 
 const TRACE_DPR_CAP = 1.25;
+
+function FooterClock() {
+  const [time, setTime] = useState(() => new Date());
+
+  useEffect(() => {
+    let active = true;
+    let currentTime = new Date();
+
+    fetch("https://worldtimeapi.org/api/timezone/Europe/Lisbon")
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => {
+        if (active && data.datetime) currentTime = new Date(data.datetime);
+      })
+      .catch(() => {});
+
+    const timer = window.setInterval(() => {
+      currentTime = new Date(currentTime.getTime() + 1000);
+      if (active) setTime(currentTime);
+    }, 1000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  return (
+    <time dateTime={time.toISOString()}>
+      {new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Lisbon",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(time)}
+    </time>
+  );
+}
+
+function FooterLottie() {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return undefined;
+    let disposed = false;
+    let animation;
+
+    import("lottie-web/build/player/lottie_light").then(({ default: lottie }) => {
+      if (disposed || !containerRef.current) return;
+      animation = lottie.loadAnimation({
+        container: containerRef.current,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        animationData: footerAnimation,
+      });
+    });
+
+    return () => {
+      disposed = true;
+      animation?.destroy();
+    };
+  }, []);
+
+  return <div ref={containerRef} className="site-footer__lottie" aria-label="Animated mark" />;
+}
+
+function FooterLineField() {
+  return (
+    <span className="site-footer__line-cell" aria-hidden="true">
+      <span className="site-footer__line-field">
+        {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
+      </span>
+    </span>
+  );
+}
+
 export default function TraceDream() {
   const canvasRef = useRef(null);
   const bottomCanvasRef = useRef(null);
@@ -457,6 +535,24 @@ export default function TraceDream() {
         </div>
         <AlphabetGenerator />
       </div>
+      <footer className="site-footer" aria-label="Footer grid">
+        <div className="site-footer__grid">
+          <span className="site-footer__lottie-cell"><FooterLottie /></span>
+          <FooterLineField />
+          <span className="site-footer__back-to-top-cell">
+            <button
+              className="site-footer__back-to-top"
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            >
+              Back to top
+            </button>
+          </span>
+          <span className="site-footer__label">RunRobRun.ltd</span>
+          <span aria-hidden="true" />
+          <span className="site-footer__time"><FooterClock /></span>
+        </div>
+      </footer>
     </section>
   );
 }

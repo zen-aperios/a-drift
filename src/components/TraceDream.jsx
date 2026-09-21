@@ -1241,10 +1241,9 @@ export default function TraceDream() {
           if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, heroReturnOpacity, state.heroDismiss * 28, heroWarpOptions);
           drawScrollCue(heroReturnOpacity);
         }
-        state.heroChars.forEach((stamp, index) => {
-          const staggerOffset = index * 0.07;
-          const localProgress = clamp((state.heroDismiss - staggerOffset) / Math.max(0.0001, 1 - staggerOffset), 0, 1);
-          const eased = heroDismissEase(localProgress);
+        const heroWordEased = heroDismissEase(state.heroDismiss);
+        state.heroChars.forEach((stamp) => {
+          const eased = heroWordEased;
           const opacity = 1 - eased;
           if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions());
         });

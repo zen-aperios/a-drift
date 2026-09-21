@@ -78,8 +78,6 @@ export default function TraceDream() {
       heroDismiss: 0,
       heroWarpPhase: 0,
       heroWarpSpeed: 0.0012,
-      heroWarpMix: 1,
-      heroWarpStopping: false,
       lastFrameTime: 0,
     };
     const heroDismissEase = gsap.parseEase("power4.out");
@@ -337,23 +335,6 @@ export default function TraceDream() {
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
       state.hasScrolled = targetScroll > 2;
-      if (targetScroll > 2 && !state.heroWarpStopping) {
-        state.heroWarpStopping = true;
-        gsap.to(state, {
-          heroWarpMix: 0,
-          duration: 0.9,
-          ease: "power4.out",
-          overwrite: "auto",
-        });
-      } else if (targetScroll <= 2 && state.heroWarpStopping) {
-        state.heroWarpStopping = false;
-        gsap.to(state, {
-          heroWarpMix: 1,
-          duration: 0.45,
-          ease: "power4.out",
-          overwrite: "auto",
-        });
-      }
 
       if (immediate) {
         gsap.set(state, {
@@ -424,7 +405,7 @@ export default function TraceDream() {
       const warpStrength = options.warpStrength ?? (0.28 + fade * 0.72);
       const warpFrequency = options.warpFrequency ?? state.warpFrequency;
       const stripHeight = 1;
-      const basePhase = stamp.warpPhase + (options.warpPhaseOffset ?? 0);
+      const basePhase = stamp.warpPhase + state.heroWarpPhase + (options.warpPhaseOffset ?? 0);
 
       ctx.save();
       ctx.translate(stamp.x, stamp.y - state.scrollY + state.height * 0.18);
@@ -475,9 +456,8 @@ export default function TraceDream() {
       ctx.restore();
     }
 
-    function getHeroWarpOptions(mix = state.heroWarpMix) {
+    function getHeroWarpOptions() {
       return {
-        warpPhaseOffset: state.heroWarpPhase * mix,
         warpFrequency: state.warpFrequency,
       };
     }
@@ -537,7 +517,7 @@ export default function TraceDream() {
           const localProgress = clamp((state.heroDismiss - staggerOffset) / Math.max(0.0001, 1 - staggerOffset), 0, 1);
           const eased = heroDismissEase(localProgress);
           const opacity = 1 - eased;
-          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions(1));
+          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions());
         });
       }
 

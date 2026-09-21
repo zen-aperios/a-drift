@@ -16,6 +16,7 @@ export function createBottomGhostRenderer({
   getWarpPhase,
   getFrame,
   getProgress,
+  getDrawOffsetY = () => 0,
 }) {
   const glyphCache = new Map();
 
@@ -196,6 +197,7 @@ export function createBottomGhostRenderer({
     const frame = getFrame();
     const textCenterY = frame.y;
     const textDocumentCenterY = frame.documentY ?? frame.y + state.rawScrollY;
+    const drawOffsetY = getDrawOffsetY();
 
     ctx.save();
     state.bottomGhostSegments.forEach((segment) => {
@@ -211,7 +213,7 @@ export function createBottomGhostRenderer({
         const headDistance = clamp((drawProgress - ghost.pathProgress) / 0.08, 0, 1);
         drawGlyph(
           ghost,
-          textDocumentCenterY + (ghost.y - gridWorldCenterY),
+          textDocumentCenterY + (ghost.y - gridWorldCenterY) - drawOffsetY,
           false,
           index,
           Math.max(visibleCount, 1),
@@ -229,8 +231,9 @@ export function createBottomGhostRenderer({
       const stampEased = heroDismissEase(stampReveal);
       const screenY = textCenterY + (stamp.y - gridWorldCenterY);
       if (screenY < -CONFIG.fontSize * 1.5 || screenY > state.height + CONFIG.fontSize * 1.5) return;
-      drawGlyph(stamp, textDocumentCenterY + (stamp.y - gridWorldCenterY), false, stampIndex, state.bottomGhostGrid.length, stampEased * CONFIG.ghostOpacity * 0.62);
-      drawGlyph(stamp, textDocumentCenterY + (stamp.y - gridWorldCenterY), true, stampIndex, state.bottomGhostGrid.length, stampEased);
+      const y = textDocumentCenterY + (stamp.y - gridWorldCenterY) - drawOffsetY;
+      drawGlyph(stamp, y, false, stampIndex, state.bottomGhostGrid.length, stampEased * CONFIG.ghostOpacity * 0.62);
+      drawGlyph(stamp, y, true, stampIndex, state.bottomGhostGrid.length, stampEased);
     });
 
     ctx.restore();

@@ -48,12 +48,35 @@ export function createNoiseTexture(seededRandom) {
   return noiseTexture;
 }
 
+export function createImageCanvasTexture(image, maxTextureSize = 4096) {
+  const sourceWidth = image.naturalWidth || image.width || 1;
+  const sourceHeight = image.naturalHeight || image.height || 1;
+  const limit = Math.max(256, Math.min(4096, maxTextureSize || 4096));
+  const scale = Math.min(1, limit / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  ctx.drawImage(image, 0, 0, width, height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export function createPortalMaterial(texture, noiseTexture, shaderState) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
   return new THREE.ShaderMaterial({
     transparent: true,
     depthTest: false,
@@ -137,7 +160,7 @@ export function createPortalMaterial(texture, noiseTexture, shaderState) {
         vec2 imageUv = containUv(baseUv - flow * (1.0 - progress), uCanvasResolution, uImageResolution);
         vec2 inBounds = step(vec2(0.0), imageUv) * step(imageUv, vec2(1.0));
         float imageMask = inBounds.x * inBounds.y;
-        vec4 color = texture2D(uTexture, clamp(imageUv, 0.0, 1.0));
+        vec4 color = texture2D(uTexture, clamp(imageUv, vec2(0.0), vec2(1.0)));
         gl_FragColor = vec4(color.rgb, color.a * reveal * imageMask);
       }
     `,

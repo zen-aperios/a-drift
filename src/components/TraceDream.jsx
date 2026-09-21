@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import {
   THREE,
+  createImageCanvasTexture,
   createMediaRenderer,
   createNoiseTexture,
   createPortalMaterial,
@@ -21,6 +22,9 @@ import {
   PLACEMENT_GRID_ROWS,
 } from "./traceConfig.js";
 
+const TRACE_DPR_CAP = 1.25;
+const TRACE_RENDER_FPS = 40;
+
 function hexToRgba(hex, alpha) {
   const safe = hex.replace("#", "");
   const normalized = safe.length === 3 ? safe.split("").map((char) => char + char).join("") : safe;
@@ -34,32 +38,83 @@ function hexToRgba(hex, alpha) {
 export default function TraceDream() {
   const canvasRef = useRef(null);
   const bottomCanvasRef = useRef(null);
+  const bottomGhostCanvasRef = useRef(null);
   const mediaBackCanvasRef = useRef(null);
   const mediaFrontCanvasRef = useRef(null);
+  const mediaDomBackLayerRef = useRef(null);
+  const mediaDomFrontLayerRef = useRef(null);
+  const alphabetSectionRef = useRef(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [pathControlsOpen, setPathControlsOpen] = useState(false);
+  const pathControlsOpenRef = useRef(pathControlsOpen);
   const [alphabetGhostDirection, setAlphabetGhostDirection] = useState(148);
   const [alphabetWarpChaos, setAlphabetWarpChaos] = useState(0.62);
+  const [alphabetActive, setAlphabetActive] = useState(false);
+
+  useEffect(() => {
+    pathControlsOpenRef.current = pathControlsOpen;
+  }, [pathControlsOpen]);
+
+  useEffect(() => {
+    const section = alphabetSectionRef.current;
+    if (!section) return undefined;
+    let hasRevealed = false;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isNear = entry.isIntersecting;
+        setAlphabetActive(isNear);
+        if (!isNear || hasRevealed) return;
+        hasRevealed = true;
+        gsap.fromTo(
+          section.querySelectorAll(".alphabet-cell"),
+          { autoAlpha: 0, y: 18 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.7,
+            ease: "power3.out",
+            stagger: 0.025,
+            overwrite: true,
+          }
+        );
+      },
+      {
+        root: null,
+        rootMargin: "360px 0px 360px 0px",
+        threshold: 0.01,
+      }
+    );
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+      gsap.killTweensOf(section.querySelectorAll(".alphabet-cell"));
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const bottomCanvas = bottomCanvasRef.current;
+    const bottomGhostCanvas = bottomGhostCanvasRef.current;
     const mediaBackCanvas = mediaBackCanvasRef.current;
     const mediaFrontCanvas = mediaFrontCanvasRef.current;
-    if (!canvas || !bottomCanvas || !mediaBackCanvas || !mediaFrontCanvas) return undefined;
+    const mediaDomBackLayer = mediaDomBackLayerRef.current;
+    const mediaDomFrontLayer = mediaDomFrontLayerRef.current;
+    if (!canvas || !bottomCanvas || !bottomGhostCanvas || !mediaBackCanvas || !mediaFrontCanvas || !mediaDomBackLayer || !mediaDomFrontLayer) return undefined;
 
     document.body.style.overflowX = "hidden";
     document.body.style.overflowY = "auto";
     window.scrollTo({ top: 0, behavior: "instant" });
+    const useDomPortalImages = navigator.userAgent.toLowerCase().includes("firefox");
 
     const ctx = canvas.getContext("2d");
     const bottomCtx = bottomCanvas.getContext("2d");
+    const bottomGhostCtx = bottomGhostCanvas.getContext("2d");
     const mediaBackRenderer = createMediaRenderer(mediaBackCanvas);
     const mediaFrontRenderer = createMediaRenderer(mediaFrontCanvas);
     const mediaBackScene = new THREE.Scene();
     const mediaFrontScene = new THREE.Scene();
     const mediaCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1000, 1000);
-    const mediaLoader = new THREE.TextureLoader();
     const noiseTexture = createNoiseTexture(seededRandom);
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
@@ -109,6 +164,8 @@ export default function TraceDream() {
         end: { x: 0.9, y: 0.45258333333333334 },
       },
       bottomVideo: null,
+      bottomGhostCanvasTop: 0,
+      bottomGhostCanvasHeight: 0,
       bottomSectionStart: 0,
       bottomSectionHeight: 0,
       landedAnchors: [],
@@ -140,6 +197,7 @@ export default function TraceDream() {
       heroWarpPhase: 0,
       heroWarpSpeed: 0.0012,
       lastFrameTime: 0,
+      lastRenderTime: 0,
     };
     const bottomAnimation = {
       progress: 0,
@@ -150,12 +208,13 @@ export default function TraceDream() {
     };
     const heroDismissEase = gsap.parseEase("power4.out");
     const bottomGhostRenderer = createBottomGhostRenderer({
-      ctx: bottomCtx,
+      ctx: bottomGhostCtx,
       state,
       heroDismissEase,
       getWarpPhase,
       getFrame: getBottomVideoFrame,
       getProgress: () => bottomAnimation.progress,
+      getDrawOffsetY: () => state.bottomGhostCanvasTop,
     });
     const diagonalGhostRenderer = createDiagonalGhostRenderer({
       ctx,
@@ -396,20 +455,25 @@ export default function TraceDream() {
         const image = new Image();
         image.decoding = "async";
         image.onload = () => {
+          if (cancelled) return;
           item.aspect = (image.naturalWidth || image.width || 1) / Math.max(1, image.naturalHeight || image.height || 1);
-          buildPortalLayout();
-        };
-        image.src = src;
-        mediaLoader.load(src, (texture) => {
-          if (cancelled) {
-            texture.dispose();
+          if (useDomPortalImages) {
+            image.className = "trace-dom-media";
+            image.alt = "";
+            image.draggable = false;
+            item.domNode = image;
+            (item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer).appendChild(image);
+            buildPortalLayout();
             return;
           }
+          const texture = createImageCanvasTexture(image, mediaBackRenderer.capabilities?.maxTextureSize);
           item.texture = texture;
           item.material = createPortalMaterial(texture, noiseTexture, state);
           item.mesh = createPortalMesh(item.material);
           mediaBackScene.add(item.mesh);
-        });
+          buildPortalLayout();
+        };
+        image.src = src;
         return item;
       });
       buildPortalLayout();
@@ -421,16 +485,25 @@ export default function TraceDream() {
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
+      video.autoplay = true;
       video.preload = "metadata";
       video.crossOrigin = "anonymous";
 
-      const texture = new THREE.VideoTexture(video);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      const material = createPortalMaterial(texture, noiseTexture, state);
-      const mesh = createPortalMesh(material);
-      mediaBackScene.add(mesh);
+      let texture = null;
+      let material = null;
+      let mesh = null;
+      if (useDomPortalImages) {
+        video.className = "trace-dom-media trace-dom-video";
+        mediaDomBackLayer.appendChild(video);
+      } else {
+        texture = new THREE.VideoTexture(video);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        material = createPortalMaterial(texture, noiseTexture, state);
+        mesh = createPortalMesh(material);
+        mediaBackScene.add(mesh);
+      }
 
       state.bottomVideo = {
         video,
@@ -438,6 +511,8 @@ export default function TraceDream() {
         material,
         mesh,
         aspect: 16 / 9,
+        domStyle: {},
+        lastPlayAttempt: 0,
         reveal: {
           progress: 0,
           target: 0,
@@ -447,6 +522,10 @@ export default function TraceDream() {
       video.addEventListener("loadedmetadata", () => {
         if (cancelled) return;
         state.bottomVideo.aspect = (video.videoWidth || 16) / Math.max(1, video.videoHeight || 9);
+      });
+      video.addEventListener("canplay", () => {
+        if (cancelled) return;
+        video.play().catch(() => {});
       });
 
       video.play().catch(() => {});
@@ -760,6 +839,18 @@ export default function TraceDream() {
       ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
       bottomCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
 
+      const bottomGhostTop = Math.max(0, state.bottomSectionStart - state.height * 0.35);
+      const bottomGhostHeight = Math.max(state.height * 1.2, state.bottomSectionHeight + state.height * 0.35);
+      state.bottomGhostCanvasTop = bottomGhostTop;
+      state.bottomGhostCanvasHeight = bottomGhostHeight;
+      const bottomGhostCanvasWidth = canvasWidth;
+      const bottomGhostCanvasHeight = Math.round(bottomGhostHeight * state.dpr);
+      if (bottomGhostCanvas.width !== bottomGhostCanvasWidth) bottomGhostCanvas.width = bottomGhostCanvasWidth;
+      if (bottomGhostCanvas.height !== bottomGhostCanvasHeight) bottomGhostCanvas.height = bottomGhostCanvasHeight;
+      bottomGhostCanvas.style.top = `${bottomGhostTop}px`;
+      bottomGhostCanvas.style.height = `${bottomGhostHeight}px`;
+      bottomGhostCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
       [mediaBackRenderer, mediaFrontRenderer].forEach((renderer) => {
         renderer.setPixelRatio(Math.min(state.dpr, 1.25));
         renderer.setSize(state.width, renderHeight, false);
@@ -915,6 +1006,9 @@ export default function TraceDream() {
 
     function updatePathEditor() {
       if (!pathEditor) return;
+      const shouldShowEditor = pathControlsOpenRef.current || Boolean(activePathPoint);
+      pathEditor.classList.toggle("is-hidden", !shouldShowEditor);
+      if (!shouldShowEditor) return;
       const showGuides = pathGuidesToggle?.checked ?? true;
       pathEditor.classList.toggle("is-guides-hidden", !showGuides);
       pathEditor.setAttribute("viewBox", `0 0 ${state.width} ${Math.max(state.renderHeight, state.height)}`);
@@ -1132,7 +1226,7 @@ export default function TraceDream() {
     }
 
     function resize() {
-      state.dpr = window.devicePixelRatio || 1;
+      state.dpr = Math.min(window.devicePixelRatio || 1, TRACE_DPR_CAP);
       state.width = window.innerWidth;
       state.height = window.innerHeight;
       state.renderHeight = Math.max(state.renderHeight, state.height * 2);
@@ -1568,7 +1662,7 @@ export default function TraceDream() {
 
     function drawBottomVideo() {
       const item = state.bottomVideo;
-      if (!item?.mesh || !item.material) return false;
+      if (!item) return false;
 
       const rawScreenY = getBottomVideoBaseScreenY();
       const revealStartY = state.height * (state.portalRevealStart / 100);
@@ -1578,11 +1672,33 @@ export default function TraceDream() {
       setPortalReveal(item, revealTarget);
       const progress = clamp(item.reveal.progress, 0, 1);
 
-      item.mesh.visible = progress > 0.001;
-      if (!item.mesh.visible) return false;
-
       const eased = heroDismissEase(progress);
       const frame = getBottomVideoFrame();
+
+      if (useDomPortalImages) {
+        const style = item.domStyle;
+        const setStyle = (key, value) => {
+          if (style[key] === value) return;
+          style[key] = value;
+          item.video.style[key] = value;
+        };
+        setStyle("display", progress > 0.001 ? "block" : "none");
+        if (progress <= 0.001) return false;
+        if (item.video.paused && performance.now() - item.lastPlayAttempt > 1000) {
+          item.lastPlayAttempt = performance.now();
+          item.video.play().catch(() => {});
+        }
+        setStyle("width", `${Math.round(frame.width)}px`);
+        setStyle("height", `${Math.round(frame.height)}px`);
+        setStyle("opacity", eased >= 0.995 ? "1" : eased.toFixed(3));
+        setStyle("clipPath", eased >= 0.995 ? "none" : `inset(${((1 - eased) * 100).toFixed(2)}% 0 0 0)`);
+        setStyle("transform", `translate3d(${(frame.x - frame.width * 0.5).toFixed(2)}px, ${(frame.documentY - frame.height * 0.5).toFixed(2)}px, 0)`);
+        return true;
+      }
+
+      if (!item.mesh || !item.material) return false;
+      item.mesh.visible = progress > 0.001;
+      if (!item.mesh.visible) return false;
 
       item.mesh.position.set(frame.x, getThreeDocumentY(frame.documentY), 0);
       item.mesh.scale.set(frame.width, frame.height, 1);
@@ -1597,11 +1713,8 @@ export default function TraceDream() {
       const videoEased = heroDismissEase(clamp(videoReveal, 0, 1));
       const width = state.width * 0.95;
       const height = width / Math.max(0.1, item?.aspect || 16 / 9);
-      const slideY = (1 - videoEased) * 64;
       const baseScreenY = getBottomVideoBaseRawScreenY();
-      const slowScrollDrift = Math.sin(state.rawScrollY * 0.002 + 4.2) * state.portalDrift;
-      const parallaxDrift = (baseScreenY - state.height * 0.5) * state.portalParallax;
-      const y = baseScreenY + slowScrollDrift + parallaxDrift + slideY;
+      const y = baseScreenY;
       return {
         x: state.width * 0.5,
         y,
@@ -1631,6 +1744,7 @@ export default function TraceDream() {
       let hasVisibleFrontPortal = false;
       state.portalImages.forEach((item) => {
         if (item.mesh) item.mesh.visible = false;
+        if (item.domNode) item.domNode.style.display = "none";
         item.renderFrame = null;
         item.visibleRenderFrame = null;
       });
@@ -1648,12 +1762,26 @@ export default function TraceDream() {
         const width = item.width;
         const height = item.height;
         const slideY = (1 - eased) * 64;
-        const slowScrollDrift = 0;
-        const parallaxDrift = 0;
+        const slowScrollDrift = Math.sin(state.rawScrollY * 0.002 + item.index * 0.67) * state.portalDrift;
+        const parallaxDrift = (rawScreenY - state.height * 0.5) * state.portalParallax;
         const screenY = rawScreenY + slowScrollDrift + parallaxDrift;
         const documentY = getDocumentY(screenY + slideY);
         item.renderFrame = { x: item.x, y: documentY, width, height };
         item.visibleRenderFrame = getPortalVisibleFrame(item.renderFrame, item);
+
+        if (useDomPortalImages && item.domNode) {
+          const targetLayer = item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer;
+          if (item.domNode.parentNode !== targetLayer) targetLayer.appendChild(item.domNode);
+          if (item.layer === "front") hasVisibleFrontPortal = true;
+          else hasVisibleBackPortal = true;
+          item.domNode.style.display = "block";
+          item.domNode.style.width = `${width}px`;
+          item.domNode.style.height = `${height}px`;
+          item.domNode.style.opacity = `${eased}`;
+          item.domNode.style.clipPath = `inset(${(1 - eased) * 100}% 0 0 0)`;
+          item.domNode.style.transform = `translate3d(${item.x - width * 0.5}px, ${documentY - height * 0.5}px, 0)`;
+          return;
+        }
 
         if (item.mesh && item.material) {
           const targetScene = item.layer === "front" ? mediaFrontScene : mediaBackScene;
@@ -1695,6 +1823,9 @@ export default function TraceDream() {
 
     function render() {
       const now = performance.now();
+      const minFrameMs = 1000 / TRACE_RENDER_FPS;
+      if (state.lastRenderTime && now - state.lastRenderTime < minFrameMs) return;
+      state.lastRenderTime = now;
       if (!state.lastFrameTime) state.lastFrameTime = now;
       const dt = now - state.lastFrameTime;
       state.lastFrameTime = now;
@@ -1706,9 +1837,10 @@ export default function TraceDream() {
       const clearHeight = state.height * 2.5;
       ctx.clearRect(0, clearY, state.width, clearHeight);
       bottomCtx.clearRect(0, clearY, state.width, clearHeight);
+      bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
-      updatePathEditor();
+      if (pathControlsOpenRef.current || activePathPoint) updatePathEditor();
 
       if (!state.hasScrolled && state.heroDismiss <= 0.001) {
         const topGhostOffsets = getTopGhostOffsets();
@@ -1798,7 +1930,10 @@ export default function TraceDream() {
         });
       }
       bottomGhostRenderer.draw();
-      diagonalGhostRenderer.draw();
+      const creativityScreenTop = state.creativitySectionStart - state.scrollY + state.height * 0.18;
+      const creativityScreenBottom = creativityScreenTop + state.creativitySectionHeight;
+      const creativityIsNear = creativityScreenBottom > -state.height && creativityScreenTop < state.height * 2;
+      if (creativityIsNear) diagonalGhostRenderer.draw();
       drawPortalResizeHandles();
     }
 
@@ -1884,6 +2019,7 @@ export default function TraceDream() {
     }
 
     function findPortalItemAt(clientX, clientY) {
+      if (state.hidePlacementGrid) return null;
       const documentY = clientY + state.rawScrollY;
       return [...state.portalImages].reverse().find((item) => {
         if (!item.mesh || (item.reveal?.progress ?? 0) <= 0.02) return false;
@@ -2198,6 +2334,7 @@ export default function TraceDream() {
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();
       state.portalImages.forEach((item) => {
+        item.domNode?.remove();
         item.mesh?.parent?.remove(item.mesh);
         item.mesh?.geometry?.dispose();
         item.material?.dispose();
@@ -2205,6 +2342,7 @@ export default function TraceDream() {
       });
       if (state.bottomVideo) {
         state.bottomVideo.video.pause();
+        state.bottomVideo.video.remove();
         state.bottomVideo.video.removeAttribute("src");
         state.bottomVideo.video.load();
         state.bottomVideo.mesh?.parent?.remove(state.bottomVideo.mesh);
@@ -2225,12 +2363,15 @@ export default function TraceDream() {
       <div className="trace-scroll-shell">
         <div className="trace-viewport">
           <canvas ref={mediaBackCanvasRef} className="trace-media-canvas trace-media-canvas--back" />
+          <div ref={mediaDomBackLayerRef} className="trace-dom-media-layer trace-dom-media-layer--back" />
           <canvas ref={canvasRef} className="trace-canvas" />
+          <div ref={mediaDomFrontLayerRef} className="trace-dom-media-layer trace-dom-media-layer--front" />
           <canvas ref={mediaFrontCanvasRef} className="trace-media-canvas trace-media-canvas--front" />
-          <canvas ref={bottomCanvasRef} className="bottom-ghost-canvas" />
+          <canvas ref={bottomGhostCanvasRef} className="bottom-ghost-canvas" />
+          <canvas ref={bottomCanvasRef} className="bottom-ui-canvas" />
           <svg
             id="creativityPathEditor"
-            className="path-editor"
+            className={`path-editor${pathControlsOpen ? "" : " is-hidden"}`}
             aria-hidden="true"
           >
             <path data-path-line d="" />
@@ -2397,7 +2538,7 @@ export default function TraceDream() {
         </div>
           </aside>
         </div>
-        <section className="alphabet-generator" aria-label="Alphabet generator">
+        <section ref={alphabetSectionRef} className="alphabet-generator" aria-label="Alphabet generator">
           <div className="alphabet-generator__controls" aria-label="Alphabet controls">
             <label className="alphabet-slider">
               <span>Ghost Direction</span>

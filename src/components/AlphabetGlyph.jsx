@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+
+const ALPHABET_DPR_CAP = 1.25;
 
 export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
   const canvasRef = useRef(null);
@@ -8,11 +10,10 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
     if (!canvas) return undefined;
     const ctx = canvas.getContext("2d");
     const glyphCache = new Map();
-    let frameId = 0;
     let cancelled = false;
     let width = 1;
     let height = 1;
-    let dpr = window.devicePixelRatio || 1;
+    let dpr = Math.min(window.devicePixelRatio || 1, ALPHABET_DPR_CAP);
 
     function getGlyphCanvas(fontSize, solid, color) {
       const key = `${letter}|${solid ? "fill" : "stroke"}|${fontSize}|${color}|${dpr}`;
@@ -62,7 +63,7 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
       const warpAmount = fontSize * (0.04 + warpChaos * 0.08);
       const warpFrequency = 0.72 + warpChaos * 1.35;
       const stripHeight = 1;
-      const phase = performance.now() * (0.00045 + warpChaos * 0.00115) + index * 0.17 + phaseOffset;
+      const phase = index * 0.17 + phaseOffset;
 
       ctx.save();
       ctx.translate(x, y);
@@ -108,28 +109,27 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
       }
 
       drawWarpedGlyph(fontSize, true, 0, 1, centerX, centerY, 1, 0);
-      frameId = requestAnimationFrame(draw);
     }
 
     function resize() {
+      if (cancelled) return;
       const rect = canvas.getBoundingClientRect();
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
-      dpr = window.devicePixelRatio || 1;
+      dpr = Math.min(window.devicePixelRatio || 1, ALPHABET_DPR_CAP);
       canvas.width = Math.ceil(width * dpr);
       canvas.height = Math.ceil(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       glyphCache.clear();
+      draw();
     }
 
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     resize();
-    draw();
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frameId);
       observer.disconnect();
       glyphCache.clear();
     };

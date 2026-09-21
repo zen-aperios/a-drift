@@ -71,14 +71,45 @@ html.lenis body {
 }
 
 .trace-media-canvas,
+.trace-dom-media-layer,
 .trace-canvas,
-.bottom-ghost-canvas {
+.bottom-ghost-canvas,
+.bottom-ui-canvas {
   position: absolute;
   top: 0;
   left: 0;
   display: block;
   width: 100%;
   pointer-events: none;
+}
+
+.trace-dom-media-layer {
+  height: 100%;
+  overflow: visible;
+}
+
+.trace-dom-media-layer--back {
+  z-index: 1;
+}
+
+.trace-dom-media-layer--front {
+  z-index: 3;
+}
+
+.trace-dom-media {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  max-width: none;
+  object-fit: contain;
+  object-position: center;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.trace-dom-video {
+  background: #000000;
 }
 
 .trace-media-canvas {
@@ -97,6 +128,11 @@ html.lenis body {
   z-index: 6;
   pointer-events: none;
   mix-blend-mode: difference;
+}
+
+.bottom-ui-canvas {
+  z-index: 14;
+  pointer-events: none;
 }
 
 .path-editor {
@@ -487,6 +523,7 @@ html.lenis body {
   position: relative;
   display: grid;
   place-items: center;
+  opacity: 0;
   min-width: 0;
   width: 180px;
   height: 180px;

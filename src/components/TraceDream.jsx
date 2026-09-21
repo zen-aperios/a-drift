@@ -54,7 +54,7 @@ export default function TraceDream() {
       dpr: 1,
       fontSize: 160,
       rowGapVh: 90,
-      sampleDistance: 0,
+      sampleDistance: 10,
       maxTrail: 1200,
       curvePull: 700,
       scrollEase: 0.93,
@@ -475,7 +475,7 @@ export default function TraceDream() {
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.35, 0, 1)) : idleGhostCount;
-      const anchorCount = state.hasScrolled ? Math.floor(state.anchors.length * state.drawProgress) + 1 : 1;
+      const anchorCount = state.hasScrolled ? Math.floor(state.anchors.length * clamp(state.drawProgress * 1.12, 0, 1)) + 1 : 1;
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
@@ -576,7 +576,7 @@ export default function TraceDream() {
         </div>
         <div className="controls__block">
           <label htmlFor="sampleDistanceRange">Stagger Offset <span id="sampleDistanceVal" /></label>
-          <input id="sampleDistanceRange" type="range" min="0" max="120" step="1" defaultValue="0" />
+          <input id="sampleDistanceRange" type="range" min="0" max="120" step="1" defaultValue="10" />
           <label htmlFor="maxTrailRange">Ghost Count <span id="maxTrailVal" /></label>
           <input id="maxTrailRange" type="range" min="4" max="1200" step="1" defaultValue="1200" />
           <label htmlFor="curvePullRange">Curve Pull <span id="curvePullVal" /></label>

@@ -52,8 +52,8 @@ export default function TraceDream() {
       width: 0,
       height: 0,
       dpr: 1,
-      fontSize: 116,
-      rowGapVh: 70,
+      fontSize: 160,
+      rowGapVh: 90,
       sampleDistance: 0,
       maxTrail: 1200,
       curvePull: 700,
@@ -299,11 +299,12 @@ export default function TraceDream() {
       const leftX = state.width * 0.28;
       const rightX = state.width * 0.72;
       const gap = state.height * (state.rowGapVh / 100);
-      const topOffset = state.height * 0.28;
+      const topOffset = state.height * 0.32;
+      const heroY = state.height * 0.5 - state.height * 0.18;
       const heroAnchorX = getCenteredHeroAnchorX();
 
       for (let i = 0; i < letters.length; i += 1) {
-        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, topOffset + gap * i, letters[i], true));
+        anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true));
       }
 
       state.totalHeight = topOffset * 2 + gap * Math.max(0, letters.length - 1) + state.height * 0.8;
@@ -569,9 +570,9 @@ export default function TraceDream() {
           <label htmlFor="lettersInput">Letters</label>
           <textarea id="lettersInput" rows="3" defaultValue="APERIOS" />
           <label htmlFor="fontSizeRange">Font Size <span id="fontSizeVal" /></label>
-          <input id="fontSizeRange" type="range" min="48" max="220" step="1" defaultValue="116" />
+          <input id="fontSizeRange" type="range" min="48" max="160" step="1" defaultValue="160" />
           <label htmlFor="rowGapRange">Row Gap <span id="rowGapVal" /></label>
-          <input id="rowGapRange" type="range" min="20" max="80" step="1" defaultValue="70" />
+          <input id="rowGapRange" type="range" min="20" max="120" step="1" defaultValue="90" />
         </div>
         <div className="controls__block">
           <label htmlFor="sampleDistanceRange">Stagger Offset <span id="sampleDistanceVal" /></label>

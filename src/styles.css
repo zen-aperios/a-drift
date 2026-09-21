@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=Geist:wght@300;400;500;600;700&display=swap");
 
 *,
 *::before,
@@ -69,10 +69,77 @@ body {
   mix-blend-mode: difference;
 }
 
+.path-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 13;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.path-editor.is-hidden {
+  display: none;
+}
+
+.path-editor path,
+.path-editor line {
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.path-editor path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.72);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 7;
+}
+
+.path-editor line {
+  stroke: rgba(216, 215, 210, 0.55);
+  stroke-width: 1;
+}
+
+.path-editor circle {
+  fill: #d8d7d2;
+  stroke: transparent;
+  stroke-width: 0;
+  vector-effect: non-scaling-stroke;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.path-editor .path-editor__stamp-point {
+  fill: rgba(255, 255, 255, 0.72);
+  stroke: #d8d7d2;
+  stroke-width: 1.5;
+}
+
+.path-editor circle:active {
+  cursor: grabbing;
+}
+
+.path-editor.is-guides-hidden path,
+.path-editor.is-guides-hidden line,
+.path-editor.is-guides-hidden circle {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .controls--shader {
   right: 16px;
   left: auto;
   z-index: 11;
+}
+
+.controls--path {
+  right: 16px;
+  bottom: 16px;
+  top: auto;
+  left: auto;
+  z-index: 14;
 }
 
 .trace-stage {
@@ -117,11 +184,31 @@ body {
   transform: translateX(calc(100% + 24px));
 }
 
+.controls--path.is-hidden {
+  transform: translateX(calc(100% + 24px));
+}
+
 .controls-toggle {
   position: fixed;
   top: 50%;
   left: 0;
   z-index: 12;
+  width: 32px;
+  height: 72px;
+  border: 0;
+  border-radius: 0;
+  transform: translateY(-50%);
+  background: #d8d7d2;
+  color: #2f2f2f;
+  cursor: pointer;
+  font: 900 30px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.path-controls-toggle {
+  position: fixed;
+  top: calc(50% + 88px);
+  right: 0;
+  z-index: 15;
   width: 32px;
   height: 72px;
   border: 0;
@@ -192,6 +279,18 @@ body {
   justify-content: space-between;
 }
 
+.preset-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.preset-row button {
+  min-height: 2rem;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
 .controls textarea,
 .controls button,
 .controls input[type="color"] {
@@ -208,6 +307,12 @@ body {
   padding: 10px 12px;
   resize: vertical;
   text-transform: uppercase;
+}
+
+.controls textarea[readonly] {
+  min-height: 12rem;
+  text-transform: none;
+  white-space: pre;
 }
 
 .controls button {

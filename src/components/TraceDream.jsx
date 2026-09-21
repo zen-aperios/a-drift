@@ -11,6 +11,7 @@ import {
 import { applyPortalLayout } from "./portalLayout.js";
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
+import { createDiagonalGhostRenderer } from "./diagonalGhostRenderer.js";
 
 const LETTERS = "APERIOS".split("");
 const BOTTOM_VIDEO_URL = new URL("../../logofolio 2026-aperios-design.mp4", import.meta.url).href;
@@ -32,6 +33,7 @@ export default function TraceDream() {
   const mediaFrontCanvasRef = useRef(null);
   const spacerRef = useRef(null);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [pathControlsOpen, setPathControlsOpen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -86,6 +88,18 @@ export default function TraceDream() {
       bottomGhostGrid: [],
       bottomGhostSegments: [],
       bottomGhostPathLength: 0,
+      creativityStamps: [],
+      creativitySegments: [],
+      creativitySectionStart: 0,
+      creativitySectionHeight: 0,
+      creativityGapVh: 10,
+      creativityStampOverrides: [],
+      creativityPath: {
+        start: { x: 0.1, y: 0.088 },
+        controlA: { x: 0.9, y: 0.02 },
+        controlB: { x: 0.1, y: 0.37472544731858093 },
+        end: { x: 0.9, y: 0.45258333333333334 },
+      },
       bottomVideo: null,
       bottomSectionStart: 0,
       bottomSectionHeight: 0,
@@ -122,6 +136,9 @@ export default function TraceDream() {
       progress: 0,
       started: false,
     };
+    const scrollCue = {
+      exit: 0,
+    };
     const heroDismissEase = gsap.parseEase("power4.out");
     const bottomGhostRenderer = createBottomGhostRenderer({
       ctx: bottomCtx,
@@ -130,6 +147,12 @@ export default function TraceDream() {
       getWarpPhase,
       getFrame: getBottomVideoFrame,
       getProgress: () => bottomAnimation.progress,
+    });
+    const diagonalGhostRenderer = createDiagonalGhostRenderer({
+      ctx,
+      state,
+      heroDismissEase,
+      getWarpPhase,
     });
 
     const lettersInput = q("#lettersInput");
@@ -165,7 +188,14 @@ export default function TraceDream() {
     const portalDriftRange = q("#portalDriftRange");
     const portalParallaxRange = q("#portalParallaxRange");
     const bottomLineStaggerRange = q("#bottomLineStaggerRange");
+    const pathEditor = q("#creativityPathEditor");
+    const pathGuidesToggle = q("#creativityGuidesToggle");
+    const creativityGapRange = q("#creativityGapRange");
+    const pathExportBtn = q("#creativityPathExportBtn");
+    const pathExportOutput = q("#creativityPathExport");
+    const pathPresetButtons = Array.from(stage.querySelectorAll("[data-path-preset]"));
     let letters = LETTERS.slice();
+    let activePathPoint = null;
 
     function setText(id, value) {
       const node = q(`#${id}`);
@@ -199,6 +229,7 @@ export default function TraceDream() {
       setText("portalDriftVal", `${Math.round(state.portalDrift)}px`);
       setText("portalParallaxVal", state.portalParallax.toFixed(3));
       setText("bottomLineStaggerVal", `${state.bottomLineStagger.toFixed(2)}s`);
+      setText("creativityGapVal", `${Math.round(state.creativityGapVh)}vh`);
     }
 
     function syncControls() {
@@ -239,6 +270,7 @@ export default function TraceDream() {
       state.portalDrift = parseFloat(portalDriftRange.value);
       state.portalParallax = parseFloat(portalParallaxRange.value);
       state.bottomLineStagger = parseFloat(bottomLineStaggerRange.value);
+      state.creativityGapVh = parseFloat(creativityGapRange.value);
       document.body.style.background = state.bgColor;
       syncLabels();
     }
@@ -539,10 +571,178 @@ export default function TraceDream() {
       state.bottomSectionStart = lastAnchorY + 120;
       const bottomVideoHeight = (state.width * 0.95) / (state.bottomVideo?.aspect || 16 / 9);
       const bottomMargin = 48;
-      state.bottomSectionHeight = Math.max(state.height * 1.65, bottomVideoHeight + state.height * 0.8 + bottomMargin);
-      state.totalHeight = state.bottomSectionStart + state.bottomSectionHeight + bottomMargin;
+      const creativityGap = 192;
+      state.bottomSectionHeight = Math.max(state.height * 1.05, bottomVideoHeight + state.height * 0.35 + bottomMargin);
+      state.creativitySectionHeight = state.height * (state.creativityGapVh / 100) * Math.max(1, "IN-CREATIVITY".length - 1) + state.height * 0.72;
+      const bottomVideoBottom = state.bottomSectionStart + state.height * 0.54 + bottomVideoHeight * 0.5;
+      state.creativitySectionStart = bottomVideoBottom + creativityGap - state.creativitySectionHeight * state.creativityPath.start.y;
+      state.totalHeight = state.creativitySectionStart + state.creativitySectionHeight + bottomMargin;
       scrollSpacer.style.minHeight = `${Math.max(state.totalHeight, state.height * 2)}px`;
       return anchors;
+    }
+
+    function rebuildCreativityPath() {
+      diagonalGhostRenderer.clearCache();
+      const creativityGrid = diagonalGhostRenderer.build();
+      state.creativityStamps = creativityGrid.stamps;
+      state.creativitySegments = creativityGrid.segments;
+      syncPathExport();
+    }
+
+    function getCreativityPointScreen(key) {
+      const point = state.creativityPath[key];
+      const worldY = state.creativitySectionStart + state.creativitySectionHeight * point.y;
+      return {
+        x: state.width * point.x,
+        y: worldY - state.scrollY + state.height * 0.18,
+      };
+    }
+
+    function syncPathExport() {
+      if (!pathExportOutput) return;
+      pathExportOutput.value = JSON.stringify(
+        {
+          text: "IN-CREATIVITY",
+          rowGapVh: state.creativityGapVh,
+          sectionHeightVh: Number(((state.creativitySectionHeight / Math.max(1, state.height)) * 100).toFixed(2)),
+          points: state.creativityPath,
+          stampPoints: state.creativityStampOverrides,
+        },
+        null,
+        2
+      );
+    }
+
+    function applyPathPreset(name) {
+      const stampCount = "IN-CREATIVITY".length;
+      const circlePoints = Array.from({ length: stampCount }, (_, index) => {
+        const angle = -Math.PI * 0.64 + (Math.PI * 2 * index) / Math.max(1, stampCount - 1);
+        return {
+          x: 0.5 + Math.cos(angle) * 0.38,
+          y: 0.5 + Math.sin(angle) * 0.29,
+        };
+      });
+      const spiralPoints = Array.from({ length: stampCount }, (_, index) => {
+        const t = index / Math.max(1, stampCount - 1);
+        const angle = -Math.PI * 0.85 + Math.PI * 3.15 * t;
+        const radiusX = 0.4 - t * 0.22;
+        const radiusY = 0.31 - t * 0.16;
+        return {
+          x: 0.5 + Math.cos(angle) * radiusX,
+          y: 0.5 + Math.sin(angle) * radiusY,
+        };
+      });
+      const presets = {
+        c: {
+          points: {
+            start: { x: 0.1, y: 0.088 },
+            controlA: { x: 0.76, y: 0.2 },
+            controlB: { x: 0.76, y: 0.8 },
+            end: { x: 0.1, y: 0.912 },
+          },
+        },
+        s: {
+          points: {
+            start: { x: 0.1, y: 0.088 },
+            controlA: { x: 0.9, y: 0.22 },
+            controlB: { x: 0.1, y: 0.78 },
+            end: { x: 0.9, y: 0.912 },
+          },
+        },
+        diagonal: {
+          points: {
+            start: { x: 0.1, y: 0.088 },
+            controlA: { x: 0.42, y: 0.3 },
+            controlB: { x: 0.58, y: 0.7 },
+            end: { x: 0.9, y: 0.912 },
+          },
+        },
+        straight: {
+          points: {
+            start: { x: 0.5, y: 0.088 },
+            controlA: { x: 0.5, y: 0.32 },
+            controlB: { x: 0.5, y: 0.68 },
+            end: { x: 0.5, y: 0.912 },
+          },
+        },
+        circle: {
+          points: {
+            start: circlePoints[0],
+            controlA: { x: 0.9, y: 0.18 },
+            controlB: { x: 0.1, y: 0.82 },
+            end: circlePoints[circlePoints.length - 1],
+          },
+          stampOverrides: circlePoints,
+        },
+        spiral: {
+          points: {
+            start: spiralPoints[0],
+            controlA: { x: 0.95, y: 0.18 },
+            controlB: { x: 0.12, y: 0.84 },
+            end: spiralPoints[spiralPoints.length - 1],
+          },
+          stampOverrides: spiralPoints,
+        },
+      };
+      const preset = presets[name];
+      if (!preset) return;
+      state.creativityPath = JSON.parse(JSON.stringify(preset.points));
+      state.creativityStampOverrides = JSON.parse(JSON.stringify(preset.stampOverrides || []));
+      rebuildLayout();
+      updatePathEditor();
+    }
+
+    function updatePathEditor() {
+      if (!pathEditor) return;
+      const showGuides = pathGuidesToggle?.checked ?? true;
+      pathEditor.classList.toggle("is-guides-hidden", !showGuides);
+      pathEditor.setAttribute("viewBox", `0 0 ${state.width} ${state.height}`);
+      const points = {
+        start: getCreativityPointScreen("start"),
+        controlA: getCreativityPointScreen("controlA"),
+        controlB: getCreativityPointScreen("controlB"),
+        end: getCreativityPointScreen("end"),
+      };
+      const path = pathEditor.querySelector("[data-path-line]");
+      const handleA = pathEditor.querySelector("[data-handle-a]");
+      const handleB = pathEditor.querySelector("[data-handle-b]");
+      if (path) {
+        path.setAttribute(
+          "d",
+          `M ${points.start.x} ${points.start.y} C ${points.controlA.x} ${points.controlA.y}, ${points.controlB.x} ${points.controlB.y}, ${points.end.x} ${points.end.y}`
+        );
+      }
+      if (handleA) {
+        handleA.setAttribute("x1", points.start.x);
+        handleA.setAttribute("y1", points.start.y);
+        handleA.setAttribute("x2", points.controlA.x);
+        handleA.setAttribute("y2", points.controlA.y);
+      }
+      if (handleB) {
+        handleB.setAttribute("x1", points.end.x);
+        handleB.setAttribute("y1", points.end.y);
+        handleB.setAttribute("x2", points.controlB.x);
+        handleB.setAttribute("y2", points.controlB.y);
+      }
+      Object.entries(points).forEach(([key, point]) => {
+        const node = pathEditor.querySelector(`[data-path-point="${key}"]`);
+        if (!node) return;
+        node.setAttribute("cx", point.x);
+        node.setAttribute("cy", point.y);
+      });
+      const stampsLayer = pathEditor.querySelector("[data-stamp-points]");
+      if (stampsLayer) {
+        stampsLayer.replaceChildren();
+        state.creativityStamps.forEach((stamp, index) => {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("data-stamp-index", `${index}`);
+          circle.setAttribute("class", "path-editor__stamp-point");
+          circle.setAttribute("cx", stamp.x);
+          circle.setAttribute("cy", stamp.y - state.scrollY + state.height * 0.18);
+          circle.setAttribute("r", "5");
+          stampsLayer.appendChild(circle);
+        });
+      }
     }
 
     function getBottomSectionScreenY() {
@@ -566,7 +766,7 @@ export default function TraceDream() {
         { progress: 0 },
         {
           progress: 1,
-          duration: 3.2,
+          duration: 4.4,
           ease: "none",
           overwrite: "auto",
         }
@@ -620,6 +820,7 @@ export default function TraceDream() {
           drawProgress: progress,
           heroDismiss: targetScroll > 2 ? 1 : 0,
         });
+        gsap.set(scrollCue, { exit: targetScroll > 2 ? 1 : 0 });
         return;
       }
 
@@ -642,17 +843,26 @@ export default function TraceDream() {
           }
         },
       });
+
+      gsap.to(scrollCue, {
+        exit: targetScroll > 2 ? 1 : 0,
+        duration: targetScroll > 2 ? 0.6 : 0.45,
+        ease: targetScroll > 2 ? "power4.out" : "power2.out",
+        overwrite: true,
+      });
     }
 
     function rebuildLayout() {
       glyphCache.clear();
       bottomGhostRenderer.clearCache();
+      diagonalGhostRenderer.clearCache();
       state.anchors = buildAnchors();
       state.heroChars = buildHeroChars();
       const bottomGrid = bottomGhostRenderer.build();
       state.bottomGhostGrid = bottomGrid.stamps;
       state.bottomGhostSegments = bottomGrid.segments;
       state.bottomGhostPathLength = bottomGrid.pathLength;
+      rebuildCreativityPath();
       state.landedAnchors = state.anchors.map((_, index) => index === 0);
       state.anchorReveals = state.anchors.map((_, index) => ({
         opacity: index === 0 ? 1 : 0,
@@ -817,6 +1027,36 @@ export default function TraceDream() {
       });
     }
 
+    function drawScrollCue(opacityMultiplier = 1) {
+      const opacity = clamp(opacityMultiplier, 0, 1);
+      if (opacity <= 0.001) return;
+
+      const text = "SCROLL";
+      const x = state.width * 0.5;
+      const y = state.height - 16;
+      ctx.save();
+      ctx.font = `300 14px "Geist", "Neue Haas Grotesk Text", "Helvetica Neue", Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.letterSpacing = "0px";
+      ctx.fillStyle = state.fillColor;
+
+      const exit = clamp(scrollCue.exit, 0, 1);
+      const fade = heroDismissEase(clamp((exit - 0.82) / 0.18, 0, 1));
+      const baseGhostGap = 5.4;
+      for (let slot = 2; slot >= 1; slot -= 1) {
+        const staggerStart = slot === 2 ? 0.14 : 0;
+        const collapse = heroDismissEase(clamp((exit - staggerStart) / 0.66, 0, 1));
+        const backFade = slot === 2 ? 0.34 : 0.42;
+        ctx.globalAlpha = opacity * (1 - fade) * backFade;
+        ctx.fillText(text, x, y - baseGhostGap * slot * (1 - collapse));
+      }
+
+      ctx.globalAlpha = opacity * (1 - fade) * 0.9;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
     function setPortalReveal(item, target) {
       target = clamp(target, 0, 1);
       if (Math.abs(item.reveal.target - target) < 0.01) return;
@@ -978,6 +1218,7 @@ export default function TraceDream() {
       bottomCtx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
+      updatePathEditor();
 
       if (!state.hasScrolled && state.heroDismiss <= 0.001) {
         const topGhostOffsets = getTopGhostOffsets();
@@ -988,11 +1229,18 @@ export default function TraceDream() {
         const heroWarpOptions = getHeroWarpOptions();
         if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, 1, 0, heroWarpOptions);
         state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets, 1, 0, heroWarpOptions));
+        drawScrollCue(1);
         return;
       }
 
       if (state.heroDismiss < 1) {
         const topGhostOffsets = getTopGhostOffsets();
+        const heroReturnOpacity = 1 - heroDismissEase(state.heroDismiss);
+        if (heroReturnOpacity > 0.001) {
+          const heroWarpOptions = getHeroWarpOptions();
+          if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, heroReturnOpacity, state.heroDismiss * 28, heroWarpOptions);
+          drawScrollCue(heroReturnOpacity);
+        }
         state.heroChars.forEach((stamp, index) => {
           const staggerOffset = index * 0.07;
           const localProgress = clamp((state.heroDismiss - staggerOffset) / Math.max(0.0001, 1 - staggerOffset), 0, 1);
@@ -1052,17 +1300,78 @@ export default function TraceDream() {
           }
         }
         if (i > 0 && !state.landedAnchors[i] && reveal.opacity <= 0.001) continue;
+        const anchorOpacity = reveal.opacity;
         drawStamp(state.anchors[i], true, i, state.anchors.length, {
           ...(i === 0 ? getHeroWarpOptions() : {}),
-          opacity: reveal.opacity,
+          opacity: anchorOpacity,
           depth: reveal.depth,
         });
       }
       bottomGhostRenderer.draw();
+      diagonalGhostRenderer.draw();
     }
 
     function onScroll() {
       updateScrollTargets();
+    }
+
+    function onPathPointerDown(event) {
+      const target = event.target.closest?.("[data-path-point], [data-stamp-index]");
+      if (!target) return;
+      activePathPoint = target.dataset.pathPoint
+        ? { type: "path", key: target.dataset.pathPoint }
+        : { type: "stamp", index: parseInt(target.dataset.stampIndex, 10) };
+      target.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    }
+
+    function onPathPointerMove(event) {
+      if (!activePathPoint) return;
+      const worldY = event.clientY + state.scrollY - state.height * 0.18;
+      const rawX = clamp(event.clientX / Math.max(1, state.width), 0.02, 0.98);
+      const snapColumns = [0.1, 0.5, 0.9];
+      const snappedX = snapColumns.reduce((nearest, value) => (Math.abs(value - rawX) < Math.abs(nearest - rawX) ? value : nearest), snapColumns[0]);
+      const rawY = clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativitySectionHeight), 0.02, 0.98);
+      const rowGap = (state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativitySectionHeight);
+      const rowBase = state.creativityPath.start.y;
+      const snappedRow = Math.round((rawY - rowBase) / Math.max(0.001, rowGap));
+      const snappedY = clamp(rowBase + snappedRow * rowGap, 0.02, 0.98);
+      if (activePathPoint.type === "path") {
+        state.creativityPath[activePathPoint.key] = {
+          x: snappedX,
+          y: activePathPoint.key === "controlA" || activePathPoint.key === "controlB" ? rawY : snappedY,
+        };
+      } else {
+        const stampCount = "IN-CREATIVITY".length;
+        const t = activePathPoint.index / Math.max(1, stampCount - 1);
+        const basePoint = cubicPoint(
+          state.creativityPath.start,
+          state.creativityPath.controlA,
+          state.creativityPath.controlB,
+          state.creativityPath.end,
+          t
+        );
+        const snapBackDistance = Math.hypot((rawX - basePoint.x) * state.width, (rawY - basePoint.y) * state.creativitySectionHeight);
+        if (snapBackDistance < 56) {
+          delete state.creativityStampOverrides[activePathPoint.index];
+        } else {
+          state.creativityStampOverrides[activePathPoint.index] = {
+            x: rawX,
+            y: rawY,
+          };
+        }
+      }
+      rebuildCreativityPath();
+      updatePathEditor();
+      event.preventDefault();
+    }
+
+    function onPathPointerUp() {
+      activePathPoint = null;
+    }
+
+    function onPathPresetClick(event) {
+      applyPathPreset(event.currentTarget.dataset.pathPreset);
     }
 
     function rebuildFromControls() {
@@ -1103,6 +1412,7 @@ export default function TraceDream() {
       portalDriftRange,
       portalParallaxRange,
       bottomLineStaggerRange,
+      creativityGapRange,
     ];
 
     inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
@@ -1113,6 +1423,12 @@ export default function TraceDream() {
     gsap.ticker.add(render);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
+    pathEditor?.addEventListener("pointerdown", onPathPointerDown);
+    window.addEventListener("pointermove", onPathPointerMove);
+    window.addEventListener("pointerup", onPathPointerUp);
+    pathGuidesToggle?.addEventListener("input", updatePathEditor);
+    pathExportBtn?.addEventListener("click", syncPathExport);
+    pathPresetButtons.forEach((button) => button.addEventListener("click", onPathPresetClick));
     resize();
     render();
 
@@ -1125,10 +1441,17 @@ export default function TraceDream() {
       if (state.bottomVideo) gsap.killTweensOf(state.bottomVideo.reveal);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
+      pathEditor?.removeEventListener("pointerdown", onPathPointerDown);
+      window.removeEventListener("pointermove", onPathPointerMove);
+      window.removeEventListener("pointerup", onPathPointerUp);
+      pathGuidesToggle?.removeEventListener("input", updatePathEditor);
+      pathExportBtn?.removeEventListener("click", syncPathExport);
+      pathPresetButtons.forEach((button) => button.removeEventListener("click", onPathPresetClick));
       inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
       rebuildBtn.removeEventListener("click", rebuildLayout);
       glyphCache.clear();
       bottomGhostRenderer.clearCache();
+      diagonalGhostRenderer.clearCache();
       state.portalImages.forEach((item) => {
         item.mesh?.parent?.remove(item.mesh);
         item.mesh?.geometry?.dispose();
@@ -1168,6 +1491,29 @@ export default function TraceDream() {
       >
         {controlsOpen ? "‹" : "›"}
       </button>
+      <button
+        className="path-controls-toggle"
+        type="button"
+        aria-label={pathControlsOpen ? "Hide path controls" : "Show path controls"}
+        aria-expanded={pathControlsOpen}
+        onClick={() => setPathControlsOpen((open) => !open)}
+      >
+        {pathControlsOpen ? "›" : "‹"}
+      </button>
+      <svg
+        id="creativityPathEditor"
+        className="path-editor"
+        aria-hidden="true"
+      >
+        <path data-path-line d="" />
+        <line data-handle-a x1="0" y1="0" x2="0" y2="0" />
+        <line data-handle-b x1="0" y1="0" x2="0" y2="0" />
+        <g data-stamp-points />
+        <circle data-path-point="start" r="9" />
+        <circle data-path-point="controlA" r="7" />
+        <circle data-path-point="controlB" r="7" />
+        <circle data-path-point="end" r="9" />
+      </svg>
       <aside className={`controls controls--trace${controlsOpen ? "" : " is-hidden"}`}>
         <div className="controls__block">
           <p className="eyebrow">Pen Reference Build</p>
@@ -1267,6 +1613,32 @@ export default function TraceDream() {
           <input id="portalParallaxRange" type="range" min="-0.2" max="0.2" step="0.005" defaultValue="0.2" />
           <label htmlFor="bottomLineStaggerRange">Bottom Line Stagger <span id="bottomLineStaggerVal" /></label>
           <input id="bottomLineStaggerRange" type="range" min="0" max="1.5" step="0.05" defaultValue="0.3" />
+        </div>
+      </aside>
+      <aside className={`controls controls--path${pathControlsOpen ? "" : " is-hidden"}`}>
+        <div className="controls__block">
+          <p className="eyebrow">Path Editor</p>
+          <h1>IN-CREATIVITY</h1>
+          <p className="status">Drag the four points to bend the letter path. Export stores the normalized curve.</p>
+        </div>
+        <div className="controls__block">
+          <label className="toggle-row" htmlFor="creativityGuidesToggle">
+            <span>Show Points</span>
+            <input id="creativityGuidesToggle" type="checkbox" defaultChecked />
+          </label>
+          <div className="preset-row" aria-label="Path presets">
+            <button type="button" data-path-preset="c">C</button>
+            <button type="button" data-path-preset="s">S</button>
+            <button type="button" data-path-preset="spiral">Spiral</button>
+            <button type="button" data-path-preset="circle">Circle</button>
+            <button type="button" data-path-preset="diagonal">Diagonal</button>
+            <button type="button" data-path-preset="straight">Straight</button>
+          </div>
+          <label htmlFor="creativityGapRange">Letter Gap <span id="creativityGapVal" /></label>
+          <input id="creativityGapRange" type="range" min="10" max="40" step="1" defaultValue="10" />
+          <button id="creativityPathExportBtn" type="button">Update Export</button>
+          <label htmlFor="creativityPathExport">Path Export</label>
+          <textarea id="creativityPathExport" rows="11" readOnly />
         </div>
       </aside>
     </section>

@@ -123,6 +123,7 @@ export function createBottomGhostRenderer({
             y,
             letter: t >= 0.5 ? to.letter : from.letter,
             rowIndex,
+            pathProgress: rowLength > 0 ? (rowCursor + distance * t) / rowLength : t,
             warpPhase: getWarpPhase(x, y),
           });
         }
@@ -190,7 +191,7 @@ export function createBottomGhostRenderer({
     const progress = getProgress();
     if (progress <= 0.001) return;
 
-    const trailProgress = clamp(progress / 0.82, 0, 1);
+    const trailProgress = clamp(progress, 0, 1);
     const gridWorldCenterY = state.bottomSectionStart + state.height * 0.54;
     const frame = getFrame();
     const textCenterY = frame.y;
@@ -198,22 +199,22 @@ export function createBottomGhostRenderer({
     ctx.save();
     state.bottomGhostSegments.forEach((segment) => {
       const rowProgress = getRowProgress(trailProgress, segment.rowIndex);
-      const drawProgress = getDrawProgress(rowProgress);
-      const segmentProgress = clamp((drawProgress - segment.start) / Math.max(0.0001, segment.end - segment.start), 0, 1);
-      const segmentEase = heroDismissEase(segmentProgress);
-      const visibleCount = Math.floor(segment.ghosts.length * segmentEase);
+      const drawProgress = heroDismissEase(getDrawProgress(rowProgress));
+      const visibleGhosts = segment.ghosts.filter((ghost) => ghost.pathProgress <= drawProgress);
+      const visibleCount = visibleGhosts.length;
       for (let index = 0; index < visibleCount; index += 1) {
-        const ghost = segment.ghosts[index];
+        const ghost = visibleGhosts[index];
         const screenY = textCenterY + (ghost.y - gridWorldCenterY);
         if (screenY < -CONFIG.fontSize * 1.5 || screenY > state.height + CONFIG.fontSize * 1.5) continue;
         const fade = visibleCount <= 1 ? 1 : 1 - index / Math.max(1, visibleCount - 1);
-        drawGlyph(ghost, screenY, false, index, Math.max(visibleCount, 1), segmentEase * CONFIG.ghostOpacity * (0.22 + fade * 0.78));
+        const headDistance = clamp((drawProgress - ghost.pathProgress) / 0.08, 0, 1);
+        drawGlyph(ghost, screenY, false, index, Math.max(visibleCount, 1), headDistance * CONFIG.ghostOpacity * (0.22 + fade * 0.78));
       }
     });
 
     state.bottomGhostGrid.forEach((stamp, stampIndex) => {
       const rowProgress = getRowProgress(trailProgress, stamp.rowIndex);
-      const drawProgress = getDrawProgress(rowProgress);
+      const drawProgress = heroDismissEase(getDrawProgress(rowProgress));
       const stampRevealStart = Math.max(0, stamp.pathProgress - 0.08);
       const stampReveal = clamp((drawProgress - stampRevealStart) / 0.08, 0, 1);
       if (stampReveal <= 0.001) return;
@@ -224,19 +225,6 @@ export function createBottomGhostRenderer({
       drawGlyph(stamp, screenY, true, stampIndex, state.bottomGhostGrid.length, stampEased);
     });
 
-    if (progress > 0.98) {
-      ctx.save();
-      ctx.font = `900 ${CONFIG.fontSize}px Helvetica, Arial, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = CONFIG.fillColor;
-      ctx.globalAlpha = 1;
-      state.bottomGhostGrid.forEach((stamp) => {
-        const screenY = textCenterY + (stamp.y - gridWorldCenterY);
-        ctx.fillText(stamp.letter, stamp.x, screenY);
-      });
-      ctx.restore();
-    }
     ctx.restore();
   }
 

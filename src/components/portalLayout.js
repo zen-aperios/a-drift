@@ -32,7 +32,8 @@ export function applyPortalLayout({ portalImages, anchors, segments, height, wid
 
     item.x = clamp(pathPoint.x + sideOffset + jitterX, width * 0.12, width * 0.88);
     item.y = forceTrailCenter ? pathPoint.y : rowY + jitterY;
-    item.width = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4));
+    const featuredScale = index === 0 ? 1.2 : index === 1 ? 1.1 : 1;
+    item.width = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4)) * featuredScale;
     item.height = item.width / Math.max(0.1, item.aspect);
     item.layer = index === 0 || index % 4 === 2 || index % 5 === 0 ? "front" : "back";
   });

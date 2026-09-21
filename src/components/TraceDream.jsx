@@ -25,6 +25,11 @@ import { createPortalAssetController } from "./portalAssetController.js";
 import { createScrollController } from "./scrollController.js";
 import { createLayoutController } from "./layoutController.js";
 import { createCreativityPathController } from "./creativityPathController.js";
+import { createTraceState } from "./traceState.js";
+import { createTraceRuntimeController } from "./traceRuntimeController.js";
+import { createTraceLifecycleController } from "./traceLifecycleController.js";
+import { createPortalRuntimeController } from "./portalRuntimeController.js";
+import { createTraceCompositionController } from "./traceCompositionController.js";
 import {
   LETTERS,
   PLACEMENT_GRID_COLUMNS,
@@ -68,84 +73,38 @@ export default function TraceDream() {
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     let cancelled = false;
-    const state = {
-      width: 0,
-      height: 0,
-      renderHeight: 0,
-      dpr: 1,
-      fontSize: 160,
-      rowGapVh: 90,
-      sampleDistance: 10,
-      maxTrail: 1200,
-      curvePull: 700,
-      ghostOpacity: 1,
-      ghostLineWidth: 1,
-      ghostColor: "#8b8b8b",
-      fillColor: "#ffffff",
-      bgColor: "#000000",
-      warpEnabled: true,
-      warpAmount: 14,
-      warpFrequency: 1.05,
-      rotateEnabled: false,
-      rotateSpeed: 0.35,
-      anchors: [],
-      ghosts: [],
-      segments: [],
-      heroChars: [],
-      portalImages: [],
-      bottomGhostGrid: [],
-      bottomGhostSegments: [],
-      bottomGhostPathLength: 0,
-      creativityStamps: [],
-      creativitySegments: [],
-      creativitySectionStart: 0,
-      creativitySectionHeight: 0,
-      creativityBaseHeight: 0,
-      creativitySceneMinY: 0,
-      creativitySceneSpanY: 1,
-      creativityGapVh: 10,
-      creativityStampOverrides: [],
-      creativityPath: {
-        start: { x: 0.1, y: 0.088 },
-        controlA: { x: 0.9, y: 0.02 },
-        controlB: { x: 0.1, y: 0.37472544731858093 },
-        end: { x: 0.9, y: 0.45258333333333334 },
-      },
-      bottomVideo: null,
-      bottomGhostCanvasTop: 0,
-      bottomGhostCanvasHeight: 0,
-      bottomSectionStart: 0,
-      bottomSectionHeight: 0,
-      landedAnchors: [],
-      anchorReveals: [],
-      totalHeight: 0,
-      drawProgress: 0,
-      scrollY: 0,
-      rawScrollY: 0,
-      portalRevealStart: 93,
-      portalRevealDistance: 55,
-      portalRevealDuration: 1.3,
-      portalShaderIntensity: 0.24,
-      portalShaderNoiseScale: 0.75,
-      portalShaderNoiseX: 0.07,
-      portalShaderNoiseY: -0.11,
-      portalShaderNoiseSpeed: 5,
-      portalShaderSoftness: 0.02,
-      portalShaderNoiseAmount: 0.28,
-      portalShaderFlowX: 0,
-      portalShaderFlowY: 0,
-      portalShaderFlowNoiseY: 2,
-      portalShaderZoom: 0,
-      portalDrift: 90,
-      portalParallax: 0.2,
-      bottomLineStagger: 0.3,
-      hidePlacementGrid: true,
-      hasScrolled: false,
-      heroDismiss: 0,
-      heroWarpPhase: 0,
-      heroWarpSpeed: 0.0012,
-      editorWasVisible: false,
-    };
+    const state = createTraceState();
+    const portalRuntimeController = createPortalRuntimeController({ state, gsap });
+    const compositionController = createTraceCompositionController();
+    const {
+      syncRenderSurfaces,
+      syncTraceSpacerHeight,
+      updateScrollTargets,
+      onScroll,
+      rebuildLayout,
+      sampleCurve,
+      syncCreativitySceneMetrics,
+      rebuildCreativityPath,
+      queueCreativityPathRebuild,
+      getCreativityWorldY,
+      getCreativityRawY,
+      getWarpPhase,
+      getRotation,
+      createStamp,
+      buildHeroChars,
+      buildAnchors,
+      getTopGhostOffsets,
+      getTopGhostPoint,
+    } = compositionController;
+    const {
+      setPortalReveal,
+      syncPortalMaterial,
+      getDocumentY,
+      getThreeDocumentY,
+      getPortalItemDocumentFrame,
+      getPortalVisibleFrame,
+      triggerAnchorReveal,
+    } = portalRuntimeController;
     const bottomAnimation = {
       progress: 0,
       started: false,
@@ -250,83 +209,11 @@ export default function TraceDream() {
     };
     let portalEditorController;
     let portalAssetController;
-    let surfaceController;
-    let heroLayoutController;
     let scrollController;
     let layoutController;
+    let surfaceController;
+    let heroLayoutController;
     let creativityPathController;
-
-    function syncRenderSurfaces() {
-      surfaceController?.syncRenderSurfaces();
-    }
-
-    function syncTraceSpacerHeight() {
-      surfaceController?.syncTraceSpacerHeight();
-    }
-
-    function updateScrollTargets(immediate = false) {
-      scrollController?.updateTargets(immediate);
-    }
-
-    function onScroll() {
-      scrollController?.onScroll();
-    }
-
-    function rebuildLayout() {
-      layoutController?.rebuildLayout();
-    }
-
-    function sampleCurve(start, end, bendIndex) {
-      return layoutController?.sampleCurve(start, end, bendIndex) || [];
-    }
-
-    function syncCreativitySceneMetrics(nextStart) {
-      creativityPathController?.syncSceneMetrics(nextStart);
-    }
-
-    function rebuildCreativityPath() {
-      creativityPathController?.rebuildPath();
-    }
-
-    function queueCreativityPathRebuild(updateEditor = false) {
-      creativityPathController?.queuePathRebuild(updateEditor);
-    }
-
-    function getCreativityWorldY(y) {
-      return creativityPathController?.getWorldY(y) || 0;
-    }
-
-    function getCreativityRawY(worldY) {
-      return creativityPathController?.getRawY(worldY) || 0.02;
-    }
-
-    function getWarpPhase(x, y) {
-      return heroLayoutController?.getWarpPhase(x, y) || 0;
-    }
-
-    function getRotation(x, y) {
-      return heroLayoutController?.getRotation(x, y) || 0;
-    }
-
-    function createStamp(x, y, letter, solid = false) {
-      return heroLayoutController?.createStamp(x, y, letter, solid);
-    }
-
-    function buildHeroChars() {
-      return heroLayoutController?.buildHeroChars() || [];
-    }
-
-    function buildAnchors() {
-      return heroLayoutController?.buildAnchors() || [];
-    }
-
-    function getTopGhostOffsets() {
-      return heroLayoutController?.getTopGhostOffsets() || [];
-    }
-
-    function getTopGhostPoint(offsets, age) {
-      return heroLayoutController?.getTopGhostPoint(offsets, age) || { x: 0, y: 0 };
-    }
 
     surfaceController = createTraceSurfaceController({
       state,
@@ -461,6 +348,13 @@ export default function TraceDream() {
       getPortalLayerToggleRect,
       portalConfigExport,
     });
+    compositionController.setControllers({
+      surfaceController,
+      scrollController,
+      layoutController,
+      heroLayoutController,
+      creativityPathController,
+    });
 
     function resize() {
       state.dpr = Math.min(window.devicePixelRatio || 1, TRACE_DPR_CAP);
@@ -477,157 +371,47 @@ export default function TraceDream() {
       };
     }
 
-    function setPortalReveal(item, target) {
-      target = clamp(target, 0, 1);
-      if (Math.abs(item.reveal.target - target) < 0.01) return;
-      if (item.reveal.target === target) return;
-      item.reveal.target = target;
-      gsap.killTweensOf(item.reveal);
-      gsap.to(item.reveal, {
-        progress: target,
-        duration: state.portalRevealDuration,
-        ease: "power4.out",
-        overwrite: true,
-      });
-    }
+    const traceRuntimeController = createTraceRuntimeController({
+      state,
+      ctx,
+      bottomCtx,
+      bottomGhostCtx,
+      mediaBackRenderer,
+      mediaFrontRenderer,
+      bottomSectionController,
+      portalInteractionState,
+      pathEditorController,
+      mainTraceRenderer,
+      bottomGhostRenderer,
+      diagonalGhostRenderer,
+      drawPortalResizeHandles,
+    });
 
-    function syncPortalMaterial(item, width, height, progress, timeOffset = 0) {
-      item.material.uniforms.uProgress.value = progress;
-      item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
-      item.material.uniforms.uTime.value = state.heroWarpPhase + timeOffset;
-      item.material.uniforms.uNoiseScale.value = state.portalShaderNoiseScale;
-      item.material.uniforms.uNoiseSpeed.value = state.portalShaderNoiseSpeed;
-      item.material.uniforms.uSoftness.value = state.portalShaderSoftness;
-      item.material.uniforms.uNoiseAmount.value = state.portalShaderNoiseAmount;
-      item.material.uniforms.uFlowX.value = state.portalShaderFlowX;
-      item.material.uniforms.uFlowY.value = state.portalShaderFlowY;
-      item.material.uniforms.uFlowNoiseY.value = state.portalShaderFlowNoiseY;
-      item.material.uniforms.uZoom.value = state.portalShaderZoom;
-      item.material.uniforms.uCanvasResolution.value.set(width, height);
-    }
-
-    function getDocumentY(screenY) {
-      return screenY + state.rawScrollY;
-    }
-
-    function getThreeDocumentY(documentY) {
-      return state.renderHeight - documentY;
-    }
-
-    function triggerAnchorReveal(index) {
-      const reveal = state.anchorReveals[index];
-      if (!reveal || reveal.active) return;
-      reveal.active = true;
-      gsap.killTweensOf(reveal);
-      gsap.to(reveal, {
-        opacity: 1,
-        depth: 0,
-        progress: 1,
-        duration: 0.8,
-        ease: "power4.out",
-        overwrite: true,
-      });
-    }
-
-    function render(dt) {
-      state.heroWarpPhase += dt * state.heroWarpSpeed;
-      bottomSectionController.update();
-      mediaBackRenderer.clear();
-      mediaFrontRenderer.clear();
-      const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
-      const clearHeight = state.height * 2.5;
-      ctx.clearRect(0, clearY, state.width, clearHeight);
-      // Editor-only canvas work is disabled while its panel/grid is hidden.
-      const editorIsActive = !state.hidePlacementGrid || Boolean(
-        portalInteractionState.activePortalDrag || portalInteractionState.hoveredPortalCorner || portalInteractionState.selectedPortalItem
-      );
-      if (editorIsActive || state.editorWasVisible) {
-        bottomCtx.clearRect(0, clearY, state.width, clearHeight);
-      }
-      state.editorWasVisible = editorIsActive;
-      const bottomGhostScreenTop = state.bottomGhostCanvasTop - state.rawScrollY;
-      const bottomGhostScreenBottom = bottomGhostScreenTop + (state.bottomGhostCanvasHeight || state.height);
-      const bottomGhostIsNear = bottomGhostScreenBottom > -state.height * 1.5 && bottomGhostScreenTop < state.height * 2.5;
-      // The bottom ghost canvas is local to its section, so it need not clear
-      // or redraw while that section is far outside the viewport.
-      const drawBottomGhost = bottomGhostIsNear;
-      if (drawBottomGhost) {
-        bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
-      }
-      pathEditorController.update();
-      if (!mainTraceRenderer.draw()) return;
-      if (drawBottomGhost) bottomGhostRenderer.draw();
-      const creativityScreenTop = state.creativitySectionStart - state.scrollY + state.height * 0.18;
-      const creativityScreenBottom = creativityScreenTop + state.creativitySectionHeight;
-      const creativityIsNear = creativityScreenBottom > -state.height && creativityScreenTop < state.height * 2;
-      // IN-CREATIVITY keeps its exact draw behavior whenever it is nearby,
-      // but contributes no per-frame work while it is far offscreen.
-      if (creativityIsNear) diagonalGhostRenderer.draw();
-      drawPortalResizeHandles();
-    }
-
-    function getPortalItemDocumentFrame(item) {
-      return {
-        x: item.x,
-        y: item.y + state.height * 0.18,
-        width: item.width,
-        height: item.height,
-      };
-    }
-
-    function getPortalVisibleFrame(frame, item) {
-      const imageAspect = Math.max(0.1, item?.aspect || 1);
-      const frameAspect = frame.width / Math.max(1, frame.height);
-      let width = frame.width;
-      let height = frame.height;
-      if (frameAspect > imageAspect) width = height * imageAspect;
-      else height = width / imageAspect;
-      return {
-        x: frame.x,
-        y: frame.y,
-        width: Math.max(1, width),
-        height: Math.max(1, height),
-      };
-    }
-
-    const traceScheduler = createTraceScheduler({ onFrame: render });
-
-    syncPortalConfigExport();
-    portalAssetController.loadPortalImages();
-    portalAssetController.loadBottomVideo();
-    traceScheduler.start();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", resize);
-    traceViewport?.addEventListener("pointerdown", portalInteraction.onPointerDown);
-    window.addEventListener("pointermove", portalInteraction.onPointerMove);
-    window.addEventListener("pointerup", portalInteraction.onPointerUp);
-    pathEditor?.addEventListener("pointerdown", pathEditorController.onPointerDown);
-    window.addEventListener("pointermove", pathEditorController.onPointerMove);
-    window.addEventListener("pointerup", pathEditorController.onPointerUp);
-    pathGuidesToggle?.addEventListener("input", pathEditorController.update);
-    pathExportBtn?.addEventListener("click", pathEditorController.syncExport);
-    pathPresetButtons.forEach((button) => button.addEventListener("click", pathEditorController.onPresetClick));
-    resize();
-    render(0);
+    const traceScheduler = createTraceScheduler({ onFrame: traceRuntimeController.render });
+    const traceLifecycleController = createTraceLifecycleController({
+      traceScheduler,
+      portalAssetController,
+      syncPortalConfigExport,
+      onScroll,
+      resize,
+      traceViewport,
+      portalInteraction,
+      pathEditor,
+      pathEditorController,
+      pathGuidesToggle,
+      pathExportBtn,
+      pathPresetButtons,
+      renderInitialFrame: () => traceRuntimeController.render(0),
+    });
+    traceLifecycleController.start();
 
     return () => {
       cancelled = true;
-      traceScheduler.stop();
+      traceLifecycleController.cleanup();
       gsap.killTweensOf(state);
       gsap.killTweensOf(bottomAnimation);
-      traceViewport?.removeEventListener("pointerdown", portalInteraction.onPointerDown);
-      window.removeEventListener("pointermove", portalInteraction.onPointerMove);
-      window.removeEventListener("pointerup", portalInteraction.onPointerUp);
       state.portalImages.forEach((item) => gsap.killTweensOf(item.reveal));
       if (state.bottomVideo) gsap.killTweensOf(state.bottomVideo.reveal);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", resize);
-      pathEditor?.removeEventListener("pointerdown", pathEditorController.onPointerDown);
-      window.removeEventListener("pointermove", pathEditorController.onPointerMove);
-      window.removeEventListener("pointerup", pathEditorController.onPointerUp);
-      pathGuidesToggle?.removeEventListener("input", pathEditorController.update);
-      pathExportBtn?.removeEventListener("click", pathEditorController.syncExport);
-      pathPresetButtons.forEach((button) => button.removeEventListener("click", pathEditorController.onPresetClick));
       glyphRenderer.clearCache();
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();

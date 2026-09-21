@@ -78,6 +78,7 @@ export default function TraceDream() {
       heroDismiss: 0,
       heroWarpPhase: 0,
       heroWarpSpeed: 0.0012,
+      heroWarpMix: 1,
       heroWarpStopping: false,
       lastFrameTime: 0,
     };
@@ -339,7 +340,7 @@ export default function TraceDream() {
       if (targetScroll > 2 && !state.heroWarpStopping) {
         state.heroWarpStopping = true;
         gsap.to(state, {
-          heroWarpSpeed: 0,
+          heroWarpMix: 0,
           duration: 0.9,
           ease: "power4.out",
           overwrite: "auto",
@@ -347,7 +348,7 @@ export default function TraceDream() {
       } else if (targetScroll <= 2 && state.heroWarpStopping) {
         state.heroWarpStopping = false;
         gsap.to(state, {
-          heroWarpSpeed: 0.0012,
+          heroWarpMix: 1,
           duration: 0.45,
           ease: "power4.out",
           overwrite: "auto",
@@ -474,9 +475,9 @@ export default function TraceDream() {
       ctx.restore();
     }
 
-    function getHeroWarpOptions() {
+    function getHeroWarpOptions(mix = state.heroWarpMix) {
       return {
-        warpPhaseOffset: state.heroWarpPhase,
+        warpPhaseOffset: state.heroWarpPhase * mix,
         warpFrequency: state.warpFrequency,
       };
     }
@@ -536,7 +537,7 @@ export default function TraceDream() {
           const localProgress = clamp((state.heroDismiss - staggerOffset) / Math.max(0.0001, 1 - staggerOffset), 0, 1);
           const eased = heroDismissEase(localProgress);
           const opacity = 1 - eased;
-          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions());
+          if (opacity > 0.001) drawAnimatedGhostStack(stamp, topGhostOffsets, opacity, eased * 28, getHeroWarpOptions(1));
         });
       }
 
@@ -544,7 +545,7 @@ export default function TraceDream() {
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         if (i > 0 && screenY > state.height * 0.5) continue;
-        drawStamp(state.anchors[i], true, i, state.anchors.length);
+        drawStamp(state.anchors[i], true, i, state.anchors.length, i === 0 ? getHeroWarpOptions() : {});
       }
     }
 

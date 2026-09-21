@@ -1,5 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import {
+  THREE,
+  createMediaRenderer,
+  createNoiseTexture,
+  createPortalMaterial,
+  createPortalMesh,
+  loadPortalImageUrls,
+} from "./portalMedia.js";
 
 const LETTERS = "APERIOS".split("");
 
@@ -21,6 +29,14 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function fract(value) {
+  return value - Math.floor(value);
+}
+
+function seededRandom(index, salt = 0) {
+  return fract(Math.sin(index * 127.1 + salt * 311.7) * 43758.5453);
+}
+
 function cubicPoint(p0, p1, p2, p3, t) {
   const mt = 1 - t;
   const mt2 = mt * mt;
@@ -33,21 +49,34 @@ function cubicPoint(p0, p1, p2, p3, t) {
 
 export default function TraceDream() {
   const canvasRef = useRef(null);
+  const mediaBackCanvasRef = useRef(null);
+  const mediaFrontCanvasRef = useRef(null);
   const spacerRef = useRef(null);
+  const [controlsOpen, setControlsOpen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const mediaBackCanvas = mediaBackCanvasRef.current;
+    const mediaFrontCanvas = mediaFrontCanvasRef.current;
     const scrollSpacer = spacerRef.current;
-    if (!canvas || !scrollSpacer) return undefined;
+    if (!canvas || !mediaBackCanvas || !mediaFrontCanvas || !scrollSpacer) return undefined;
 
     document.body.style.overflowX = "hidden";
     document.body.style.overflowY = "auto";
     window.scrollTo({ top: 0, behavior: "instant" });
 
     const ctx = canvas.getContext("2d");
+    const mediaBackRenderer = createMediaRenderer(mediaBackCanvas);
+    const mediaFrontRenderer = createMediaRenderer(mediaFrontCanvas);
+    const mediaBackScene = new THREE.Scene();
+    const mediaFrontScene = new THREE.Scene();
+    const mediaCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1000, 1000);
+    const mediaLoader = new THREE.TextureLoader();
+    const noiseTexture = createNoiseTexture(seededRandom);
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     const glyphCache = new Map();
+    let cancelled = false;
     const state = {
       width: 0,
       height: 0,
@@ -72,11 +101,28 @@ export default function TraceDream() {
       ghosts: [],
       segments: [],
       heroChars: [],
+      portalImages: [],
       landedAnchors: [],
       anchorReveals: [],
       totalHeight: 0,
       drawProgress: 0,
       scrollY: 0,
+      portalRevealStart: 93,
+      portalRevealDistance: 68,
+      portalRevealDuration: 1.3,
+      portalShaderIntensity: 0.24,
+      portalShaderNoiseScale: 0.75,
+      portalShaderNoiseX: 0.07,
+      portalShaderNoiseY: -0.11,
+      portalShaderNoiseSpeed: 5,
+      portalShaderSoftness: 0.02,
+      portalShaderNoiseAmount: 0.28,
+      portalShaderFlowX: 0,
+      portalShaderFlowY: 0,
+      portalShaderFlowNoiseY: 2,
+      portalShaderZoom: 0,
+      portalDrift: 90,
+      portalParallax: 0.2,
       hasScrolled: false,
       heroDismiss: 0,
       heroWarpPhase: 0,
@@ -103,6 +149,20 @@ export default function TraceDream() {
     const ghostColorInput = q("#ghostColorInput");
     const bgColorInput = q("#bgColorInput");
     const rebuildBtn = q("#traceRebuildBtn");
+    const portalRevealStartRange = q("#portalRevealStartRange");
+    const portalRevealDistanceRange = q("#portalRevealDistanceRange");
+    const portalRevealDurationRange = q("#portalRevealDurationRange");
+    const portalShaderIntensityRange = q("#portalShaderIntensityRange");
+    const portalShaderNoiseScaleRange = q("#portalShaderNoiseScaleRange");
+    const portalShaderNoiseSpeedRange = q("#portalShaderNoiseSpeedRange");
+    const portalShaderSoftnessRange = q("#portalShaderSoftnessRange");
+    const portalShaderNoiseAmountRange = q("#portalShaderNoiseAmountRange");
+    const portalShaderFlowXRange = q("#portalShaderFlowXRange");
+    const portalShaderFlowYRange = q("#portalShaderFlowYRange");
+    const portalShaderFlowNoiseYRange = q("#portalShaderFlowNoiseYRange");
+    const portalShaderZoomRange = q("#portalShaderZoomRange");
+    const portalDriftRange = q("#portalDriftRange");
+    const portalParallaxRange = q("#portalParallaxRange");
     let letters = LETTERS.slice();
 
     function setText(id, value) {
@@ -122,6 +182,20 @@ export default function TraceDream() {
       setText("warpAmountVal", `${Math.round(state.warpAmount)}px`);
       setText("warpFrequencyVal", state.warpFrequency.toFixed(2));
       setText("rotateSpeedVal", state.rotateSpeed.toFixed(2));
+      setText("portalRevealStartVal", `${Math.round(state.portalRevealStart)}vh`);
+      setText("portalRevealDistanceVal", `${Math.round(state.portalRevealDistance)}vh`);
+      setText("portalRevealDurationVal", `${state.portalRevealDuration.toFixed(2)}s`);
+      setText("portalShaderIntensityVal", state.portalShaderIntensity.toFixed(3));
+      setText("portalShaderNoiseScaleVal", state.portalShaderNoiseScale.toFixed(2));
+      setText("portalShaderNoiseSpeedVal", state.portalShaderNoiseSpeed.toFixed(2));
+      setText("portalShaderSoftnessVal", state.portalShaderSoftness.toFixed(2));
+      setText("portalShaderNoiseAmountVal", state.portalShaderNoiseAmount.toFixed(2));
+      setText("portalShaderFlowXVal", state.portalShaderFlowX.toFixed(2));
+      setText("portalShaderFlowYVal", state.portalShaderFlowY.toFixed(2));
+      setText("portalShaderFlowNoiseYVal", state.portalShaderFlowNoiseY.toFixed(2));
+      setText("portalShaderZoomVal", state.portalShaderZoom.toFixed(3));
+      setText("portalDriftVal", `${Math.round(state.portalDrift)}px`);
+      setText("portalParallaxVal", state.portalParallax.toFixed(3));
     }
 
     function syncControls() {
@@ -147,6 +221,20 @@ export default function TraceDream() {
       state.fillColor = fillColorInput.value;
       state.ghostColor = ghostColorInput.value;
       state.bgColor = bgColorInput.value;
+      state.portalRevealStart = parseFloat(portalRevealStartRange.value);
+      state.portalRevealDistance = parseFloat(portalRevealDistanceRange.value);
+      state.portalRevealDuration = parseFloat(portalRevealDurationRange.value);
+      state.portalShaderIntensity = parseFloat(portalShaderIntensityRange.value);
+      state.portalShaderNoiseScale = parseFloat(portalShaderNoiseScaleRange.value);
+      state.portalShaderNoiseSpeed = parseFloat(portalShaderNoiseSpeedRange.value);
+      state.portalShaderSoftness = parseFloat(portalShaderSoftnessRange.value);
+      state.portalShaderNoiseAmount = parseFloat(portalShaderNoiseAmountRange.value);
+      state.portalShaderFlowX = parseFloat(portalShaderFlowXRange.value);
+      state.portalShaderFlowY = parseFloat(portalShaderFlowYRange.value);
+      state.portalShaderFlowNoiseY = parseFloat(portalShaderFlowNoiseYRange.value);
+      state.portalShaderZoom = parseFloat(portalShaderZoomRange.value);
+      state.portalDrift = parseFloat(portalDriftRange.value);
+      state.portalParallax = parseFloat(portalParallaxRange.value);
       document.body.style.background = state.bgColor;
       syncLabels();
     }
@@ -218,6 +306,125 @@ export default function TraceDream() {
         warpPhase: getWarpPhase(x, y),
         rotation: state.rotateEnabled ? getRotation(x, y) : 0,
       };
+    }
+
+    async function loadPortalImages() {
+      const sources = await loadPortalImageUrls(10);
+      if (cancelled) return;
+      state.portalImages = sources.map((src, index) => {
+        const item = {
+          src,
+          index,
+          texture: null,
+          mesh: null,
+          material: null,
+          aspect: 0.76,
+          layer: "back",
+          x: state.width * 0.5,
+          y: 0,
+          width: 220,
+          height: 290,
+          reveal: {
+            progress: 0,
+            target: 0,
+          },
+        };
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = () => {
+          item.aspect = (image.naturalWidth || image.width || 1) / Math.max(1, image.naturalHeight || image.height || 1);
+          buildPortalLayout();
+        };
+        image.src = src;
+        mediaLoader.load(src, (texture) => {
+          if (cancelled) {
+            texture.dispose();
+            return;
+          }
+          item.texture = texture;
+          item.material = createPortalMaterial(texture, noiseTexture, state);
+          item.mesh = createPortalMesh(item.material);
+          mediaBackScene.add(item.mesh);
+        });
+        return item;
+      });
+      buildPortalLayout();
+    }
+
+    function getStampBounds(stamp) {
+      const glyph = getGlyphCanvas(stamp.letter, true);
+      return {
+        minX: stamp.x - glyph.width * 0.5,
+        maxX: stamp.x + glyph.width * 0.5,
+        minY: stamp.y - glyph.height * 0.5,
+        maxY: stamp.y + glyph.height * 0.5,
+      };
+    }
+
+    function getHeroGhostWrapBounds() {
+      const stamps = [state.anchors[0], ...state.heroChars].filter(Boolean);
+      const offsets = getTopGhostOffsets();
+      const allBounds = [];
+      stamps.forEach((stamp) => {
+        allBounds.push(getStampBounds(stamp));
+        offsets.forEach((offset) => {
+          allBounds.push(getStampBounds({ ...stamp, x: stamp.x + offset.x, y: stamp.y + offset.y }));
+        });
+      });
+      if (!allBounds.length) {
+        return {
+          width: state.width * 0.64,
+          height: state.fontSize * 1.4,
+        };
+      }
+
+      const minX = Math.min(...allBounds.map((bounds) => bounds.minX));
+      const maxX = Math.max(...allBounds.map((bounds) => bounds.maxX));
+      const minY = Math.min(...allBounds.map((bounds) => bounds.minY));
+      const maxY = Math.max(...allBounds.map((bounds) => bounds.maxY));
+      return {
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    }
+
+    function buildPortalLayout() {
+      if (!state.portalImages.length || !state.anchors.length) return;
+      const gap = state.height * (state.rowGapVh / 100);
+      const heroWrap = getHeroGhostWrapBounds();
+      const targetWidth = clamp(heroWrap.width * 0.42, state.width * 0.22, state.width * 0.44);
+      const firstSegment = state.segments[0];
+      const firstPoints = firstSegment?.points || [];
+      const firstMiddle = firstPoints[Math.floor(firstPoints.length * 0.5)] || state.anchors[1] || state.anchors[0];
+      const lowerStart = firstMiddle.y + gap * 0.72;
+      const lowerEnd = (state.anchors[state.anchors.length - 1]?.y || lowerStart + gap * 3) - gap * 0.18;
+      const remaining = Math.max(1, state.portalImages.length - 1);
+      const columns = [-0.7, 0.7, 0, -1.05, 1.05];
+      state.portalImages.forEach((item, index) => {
+        const forceTrailCenter = index === 5;
+        const column = forceTrailCenter ? 0 : columns[index % columns.length];
+        const rowT = index === 0 ? 0 : (index - 1) / Math.max(1, remaining - 1);
+        const rowY = index === 0 ? firstMiddle.y : lerp(lowerStart, lowerEnd, rowT);
+        const pathSegmentIndex = clamp(Math.round(rowT * Math.max(0, state.segments.length - 1)), 0, Math.max(0, state.segments.length - 1));
+        const segment = state.segments[forceTrailCenter ? 3 : pathSegmentIndex];
+        const points = segment?.points || [];
+        const pathPoint =
+          index === 0
+            ? firstMiddle
+            : points[
+                Math.floor((forceTrailCenter ? 0.5 : lerp(0.28, 0.72, seededRandom(index, 7))) * Math.max(0, points.length - 1))
+              ] ||
+              state.anchors[Math.min(index, state.anchors.length - 1)] ||
+              state.anchors[0];
+        const sideOffset = column * clamp(heroWrap.width * 0.36, 170, state.width * 0.38);
+        const jitterX = index === 0 || forceTrailCenter ? 0 : lerp(-0.08, 0.08, seededRandom(index, 8)) * heroWrap.width;
+        const jitterY = index === 0 || forceTrailCenter ? 0 : lerp(-0.14, 0.14, seededRandom(index, 9)) * gap;
+        item.x = clamp(pathPoint.x + sideOffset + jitterX, state.width * 0.12, state.width * 0.88);
+        item.y = forceTrailCenter ? pathPoint.y : rowY + jitterY;
+        item.width = targetWidth * lerp(0.86, 1.18, seededRandom(index, 4));
+        item.height = item.width / Math.max(0.1, item.aspect);
+        item.layer = index === 0 || index % 4 === 2 || index % 5 === 0 ? "front" : "back";
+      });
     }
 
     function buildHeroChars() {
@@ -407,6 +614,7 @@ export default function TraceDream() {
 
       state.segments = segments;
       state.ghosts = segments.flatMap((segment) => segment.ghosts);
+      buildPortalLayout();
       updateScrollTargets(true);
     }
 
@@ -417,6 +625,16 @@ export default function TraceDream() {
       canvas.width = Math.round(state.width * state.dpr);
       canvas.height = Math.round(state.height * state.dpr);
       ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      [mediaBackRenderer, mediaFrontRenderer].forEach((renderer) => {
+        renderer.setPixelRatio(state.dpr);
+        renderer.setSize(state.width, state.height, false);
+      });
+      mediaCamera.left = 0;
+      mediaCamera.right = state.width;
+      mediaCamera.top = state.height;
+      mediaCamera.bottom = 0;
+      mediaCamera.position.z = 10;
+      mediaCamera.updateProjectionMatrix();
       rebuildLayout();
     }
 
@@ -518,6 +736,77 @@ export default function TraceDream() {
       });
     }
 
+    function setPortalReveal(item, target) {
+      target = clamp(target, 0, 1);
+      if (Math.abs(item.reveal.target - target) < 0.01) return;
+      if (item.reveal.target === target) return;
+      item.reveal.target = target;
+      gsap.killTweensOf(item.reveal);
+      gsap.to(item.reveal, {
+        progress: target,
+        duration: state.portalRevealDuration,
+        ease: "power4.out",
+        overwrite: true,
+      });
+    }
+
+    function drawPortalImages() {
+      let hasVisibleBackPortal = false;
+      let hasVisibleFrontPortal = false;
+      state.portalImages.forEach((item) => {
+        if (item.mesh) item.mesh.visible = false;
+      });
+      state.portalImages.forEach((item) => {
+        const rawScreenY = item.y - state.scrollY + state.height * 0.18;
+        const revealStartY = state.height * (state.portalRevealStart / 100);
+        const revealDistance = state.height * (state.portalRevealDistance / 100);
+        const enterProgress = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);
+        const revealTarget = rawScreenY < -item.height * 1.6 ? 0 : enterProgress;
+        setPortalReveal(item, revealTarget);
+        const progress = clamp(item.reveal.progress, 0, 1);
+        if (progress <= 0.001) return;
+
+        const eased = heroDismissEase(progress);
+        const width = item.width;
+        const height = item.height;
+        const slideY = (1 - eased) * 64;
+        const slowScrollDrift = Math.sin(state.scrollY * 0.002 + item.index * 1.37) * state.portalDrift;
+        const parallaxDrift = (rawScreenY - state.height * 0.5) * state.portalParallax;
+        const screenY = rawScreenY + slowScrollDrift + parallaxDrift;
+
+        if (item.mesh && item.material) {
+          const targetScene = item.layer === "front" ? mediaFrontScene : mediaBackScene;
+          if (item.mesh.parent !== targetScene) {
+            item.mesh.parent?.remove(item.mesh);
+            targetScene.add(item.mesh);
+          }
+          if (item.layer === "front") hasVisibleFrontPortal = true;
+          else hasVisibleBackPortal = true;
+          item.mesh.visible = true;
+          item.mesh.position.set(item.x, state.height - (screenY + slideY), 0);
+          item.mesh.scale.set(width, height, 1);
+          item.material.uniforms.uProgress.value = eased;
+          item.material.uniforms.uIntensity.value = state.portalShaderIntensity;
+          item.material.uniforms.uTime.value = state.heroWarpPhase + item.index * 0.35;
+          item.material.uniforms.uNoiseScale.value = state.portalShaderNoiseScale;
+          item.material.uniforms.uNoiseSpeed.value = state.portalShaderNoiseSpeed;
+          item.material.uniforms.uSoftness.value = state.portalShaderSoftness;
+          item.material.uniforms.uNoiseAmount.value = state.portalShaderNoiseAmount;
+          item.material.uniforms.uFlowX.value = state.portalShaderFlowX;
+          item.material.uniforms.uFlowY.value = state.portalShaderFlowY;
+          item.material.uniforms.uFlowNoiseY.value = state.portalShaderFlowNoiseY;
+          item.material.uniforms.uZoom.value = state.portalShaderZoom;
+          item.material.uniforms.uCanvasResolution.value.set(width, height);
+          if (item.texture?.image) {
+            item.material.uniforms.uImageResolution.value.set(item.texture.image.width || 1, item.texture.image.height || 1);
+          }
+        }
+
+      });
+      if (hasVisibleBackPortal) mediaBackRenderer.render(mediaBackScene, mediaCamera);
+      if (hasVisibleFrontPortal) mediaFrontRenderer.render(mediaFrontScene, mediaCamera);
+    }
+
     function triggerAnchorReveal(index) {
       const reveal = state.anchorReveals[index];
       if (!reveal || reveal.active) return;
@@ -539,6 +828,8 @@ export default function TraceDream() {
       const dt = now - state.lastFrameTime;
       state.lastFrameTime = now;
       state.heroWarpPhase += dt * state.heroWarpSpeed;
+      mediaBackRenderer.clear();
+      mediaFrontRenderer.clear();
       ctx.clearRect(0, 0, state.width, state.height);
       const idleGhostCount = Math.min(4, state.ghosts.length);
       const ghostCount = state.hasScrolled ? Math.floor(state.ghosts.length * clamp(state.drawProgress * 1.15, 0, 1)) : idleGhostCount;
@@ -581,6 +872,7 @@ export default function TraceDream() {
           drawStamp(ghost, false, i, Math.max(segmentGhostCount, 1));
         }
       });
+      drawPortalImages();
       for (let i = 0; i < state.anchors.length; i += 1) {
         const screenY = state.anchors[i].y - state.scrollY + state.height * 0.18;
         const reveal = state.anchorReveals[i] || { opacity: 1, depth: 0, progress: 1 };
@@ -641,11 +933,26 @@ export default function TraceDream() {
       fillColorInput,
       ghostColorInput,
       bgColorInput,
+      portalRevealStartRange,
+      portalRevealDistanceRange,
+      portalRevealDurationRange,
+      portalShaderIntensityRange,
+      portalShaderNoiseScaleRange,
+      portalShaderNoiseSpeedRange,
+      portalShaderSoftnessRange,
+      portalShaderNoiseAmountRange,
+      portalShaderFlowXRange,
+      portalShaderFlowYRange,
+      portalShaderFlowNoiseYRange,
+      portalShaderZoomRange,
+      portalDriftRange,
+      portalParallaxRange,
     ];
 
     inputs.forEach((input) => input.addEventListener("input", rebuildFromControls));
     rebuildBtn.addEventListener("click", rebuildLayout);
     syncControls();
+    loadPortalImages();
     gsap.ticker.add(render);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
@@ -653,13 +960,24 @@ export default function TraceDream() {
     render();
 
     return () => {
+      cancelled = true;
       gsap.ticker.remove(render);
       gsap.killTweensOf(state);
+      state.portalImages.forEach((item) => gsap.killTweensOf(item.reveal));
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
       inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
       rebuildBtn.removeEventListener("click", rebuildLayout);
       glyphCache.clear();
+      state.portalImages.forEach((item) => {
+        item.mesh?.parent?.remove(item.mesh);
+        item.mesh?.geometry?.dispose();
+        item.material?.dispose();
+        item.texture?.dispose();
+      });
+      noiseTexture.dispose();
+      mediaBackRenderer.dispose();
+      mediaFrontRenderer.dispose();
       document.body.style.overflowX = "";
       document.body.style.overflowY = "";
     };
@@ -667,9 +985,20 @@ export default function TraceDream() {
 
   return (
     <section className="trace-stage">
+      <canvas ref={mediaBackCanvasRef} className="trace-media-canvas trace-media-canvas--back" />
       <canvas ref={canvasRef} className="trace-canvas" />
+      <canvas ref={mediaFrontCanvasRef} className="trace-media-canvas trace-media-canvas--front" />
       <div ref={spacerRef} className="trace-spacer" aria-hidden="true" />
-      <aside className="controls controls--trace">
+      <button
+        className="controls-toggle"
+        type="button"
+        aria-label={controlsOpen ? "Hide controls" : "Show controls"}
+        aria-expanded={controlsOpen}
+        onClick={() => setControlsOpen((open) => !open)}
+      >
+        {controlsOpen ? "‹" : "›"}
+      </button>
+      <aside className={`controls controls--trace${controlsOpen ? "" : " is-hidden"}`}>
         <div className="controls__block">
           <p className="eyebrow">Pen Reference Build</p>
           <h1>Trace Letters Lines</h1>
@@ -723,6 +1052,49 @@ export default function TraceDream() {
         </div>
         <div className="controls__block">
           <button id="traceRebuildBtn" type="button">Rebuild Layout</button>
+        </div>
+      </aside>
+      <aside className={`controls controls--shader${controlsOpen ? "" : " is-hidden"}`}>
+        <div className="controls__block">
+          <p className="eyebrow">Portal Shader</p>
+          <h1>Media Reveal</h1>
+          <p className="status">Controls the Three.js reveal layer only.</p>
+        </div>
+        <div className="controls__block">
+          <label htmlFor="portalRevealStartRange">Reveal Start <span id="portalRevealStartVal" /></label>
+          <input id="portalRevealStartRange" type="range" min="45" max="115" step="1" defaultValue="93" />
+          <label htmlFor="portalRevealDistanceRange">Reveal Distance <span id="portalRevealDistanceVal" /></label>
+          <input id="portalRevealDistanceRange" type="range" min="15" max="90" step="1" defaultValue="68" />
+          <label htmlFor="portalRevealDurationRange">Reveal Ease <span id="portalRevealDurationVal" /></label>
+          <input id="portalRevealDurationRange" type="range" min="0.05" max="2" step="0.05" defaultValue="1.3" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="portalShaderIntensityRange">Distortion <span id="portalShaderIntensityVal" /></label>
+          <input id="portalShaderIntensityRange" type="range" min="0" max="0.35" step="0.005" defaultValue="0.24" />
+          <label htmlFor="portalShaderZoomRange">Zoom <span id="portalShaderZoomVal" /></label>
+          <input id="portalShaderZoomRange" type="range" min="0" max="0.2" step="0.005" defaultValue="0" />
+          <label htmlFor="portalShaderSoftnessRange">Reveal Softness <span id="portalShaderSoftnessVal" /></label>
+          <input id="portalShaderSoftnessRange" type="range" min="0.02" max="0.6" step="0.01" defaultValue="0.02" />
+          <label htmlFor="portalShaderNoiseAmountRange">Edge Noise <span id="portalShaderNoiseAmountVal" /></label>
+          <input id="portalShaderNoiseAmountRange" type="range" min="0" max="0.5" step="0.01" defaultValue="0.28" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="portalShaderNoiseScaleRange">Noise Scale <span id="portalShaderNoiseScaleVal" /></label>
+          <input id="portalShaderNoiseScaleRange" type="range" min="0.1" max="3" step="0.05" defaultValue="0.75" />
+          <label htmlFor="portalShaderNoiseSpeedRange">Noise Speed <span id="portalShaderNoiseSpeedVal" /></label>
+          <input id="portalShaderNoiseSpeedRange" type="range" min="0" max="5" step="0.05" defaultValue="5" />
+          <label htmlFor="portalShaderFlowXRange">Flow X <span id="portalShaderFlowXVal" /></label>
+          <input id="portalShaderFlowXRange" type="range" min="-2" max="2" step="0.05" defaultValue="0" />
+          <label htmlFor="portalShaderFlowYRange">Flow Y <span id="portalShaderFlowYVal" /></label>
+          <input id="portalShaderFlowYRange" type="range" min="-2" max="2" step="0.05" defaultValue="0" />
+          <label htmlFor="portalShaderFlowNoiseYRange">Flow Noise Y <span id="portalShaderFlowNoiseYVal" /></label>
+          <input id="portalShaderFlowNoiseYRange" type="range" min="-2" max="2" step="0.05" defaultValue="2" />
+        </div>
+        <div className="controls__block">
+          <label htmlFor="portalDriftRange">Scroll Drift <span id="portalDriftVal" /></label>
+          <input id="portalDriftRange" type="range" min="0" max="90" step="1" defaultValue="90" />
+          <label htmlFor="portalParallaxRange">Parallax <span id="portalParallaxVal" /></label>
+          <input id="portalParallaxRange" type="range" min="-0.2" max="0.2" step="0.005" defaultValue="0.2" />
         </div>
       </aside>
     </section>

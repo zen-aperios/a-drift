@@ -18,6 +18,7 @@ import { createMainTraceRenderer } from "./mainTraceRenderer.js";
 import { createTraceControls } from "./traceControls.js";
 import { createPortalInteractionController } from "./portalInteractionController.js";
 import { createPlacementLayout } from "./placementLayout.js";
+import { createPathEditorController } from "./pathEditorController.js";
 import { AlphabetGlyph } from "./AlphabetGlyph.jsx";
 import {
   ALPHABET_LETTERS,
@@ -293,7 +294,6 @@ export default function TraceDream() {
     const pathPresetButtons = Array.from(stage.querySelectorAll("[data-path-preset]"));
     const traceViewport = q(".trace-viewport");
     let letters = LETTERS.slice();
-    let activePathPoint = null;
     const portalInteractionState = {
       activePortalDrag: null,
       hoveredPortalCorner: null,
@@ -333,6 +333,17 @@ export default function TraceDream() {
       blockIsAvailable,
       getPlacedPortalFrames,
       syncPortalConfigExport,
+    });
+    const pathEditorController = createPathEditorController({
+      state,
+      pathEditor,
+      pathGuidesToggle,
+      pathExportOutput,
+      pathControlsOpen: () => pathControlsOpenRef.current,
+      getCreativityWorldY,
+      getCreativityRawY,
+      rebuildLayout,
+      queueCreativityPathRebuild,
     });
     const {
       getPortalItemInteractiveFrame,
@@ -871,7 +882,7 @@ export default function TraceDream() {
       state.creativityStamps = creativityGrid.stamps;
       state.creativitySegments = creativityGrid.segments;
       syncTraceSpacerHeight();
-      syncPathExport();
+      pathEditorController.syncExport();
     }
 
     function queueCreativityPathRebuild(updateEditor = false) {
@@ -881,18 +892,9 @@ export default function TraceDream() {
         pendingCreativityRebuild = 0;
         if (cancelled) return;
         rebuildCreativityPath();
-        if (pendingCreativityEditorUpdate) updatePathEditor();
+        if (pendingCreativityEditorUpdate) pathEditorController.update();
         pendingCreativityEditorUpdate = false;
       });
-    }
-
-    function getCreativityPointScreen(key) {
-      const point = state.creativityPath[key];
-      const worldY = getCreativityWorldY(point.y);
-      return {
-        x: state.width * point.x,
-        y: worldY - state.scrollY + state.height * 0.18,
-      };
     }
 
     function getCreativityWorldY(y) {
@@ -902,158 +904,6 @@ export default function TraceDream() {
 
     function getCreativityRawY(worldY) {
       return clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativityBaseHeight), 0.02, 0.98);
-    }
-
-    function syncPathExport() {
-      if (!pathExportOutput) return;
-      pathExportOutput.value = JSON.stringify(
-        {
-          text: "IN-CREATIVITY",
-          rowGapVh: state.creativityGapVh,
-          sectionHeightVh: Number(((state.creativitySectionHeight / Math.max(1, state.height)) * 100).toFixed(2)),
-          points: state.creativityPath,
-          stampPoints: state.creativityStampOverrides,
-        },
-        null,
-        2
-      );
-    }
-
-    function applyPathPreset(name) {
-      const stampCount = "IN-CREATIVITY".length;
-      const circlePoints = Array.from({ length: stampCount }, (_, index) => {
-        const angle = -Math.PI * 0.64 + (Math.PI * 2 * index) / Math.max(1, stampCount - 1);
-        return {
-          x: 0.5 + Math.cos(angle) * 0.38,
-          y: 0.5 + Math.sin(angle) * 0.29,
-        };
-      });
-      const spiralPoints = Array.from({ length: stampCount }, (_, index) => {
-        const t = index / Math.max(1, stampCount - 1);
-        const angle = -Math.PI * 0.85 + Math.PI * 3.15 * t;
-        const radiusX = 0.4 - t * 0.22;
-        const radiusY = 0.31 - t * 0.16;
-        return {
-          x: 0.5 + Math.cos(angle) * radiusX,
-          y: 0.5 + Math.sin(angle) * radiusY,
-        };
-      });
-      const presets = {
-        c: {
-          points: {
-            start: { x: 0.1, y: 0.088 },
-            controlA: { x: 0.76, y: 0.2 },
-            controlB: { x: 0.76, y: 0.8 },
-            end: { x: 0.1, y: 0.912 },
-          },
-        },
-        s: {
-          points: {
-            start: { x: 0.1, y: 0.088 },
-            controlA: { x: 0.9, y: 0.22 },
-            controlB: { x: 0.1, y: 0.78 },
-            end: { x: 0.9, y: 0.912 },
-          },
-        },
-        diagonal: {
-          points: {
-            start: { x: 0.1, y: 0.088 },
-            controlA: { x: 0.42, y: 0.3 },
-            controlB: { x: 0.58, y: 0.7 },
-            end: { x: 0.9, y: 0.912 },
-          },
-        },
-        straight: {
-          points: {
-            start: { x: 0.5, y: 0.088 },
-            controlA: { x: 0.5, y: 0.32 },
-            controlB: { x: 0.5, y: 0.68 },
-            end: { x: 0.5, y: 0.912 },
-          },
-        },
-        circle: {
-          points: {
-            start: circlePoints[0],
-            controlA: { x: 0.9, y: 0.18 },
-            controlB: { x: 0.1, y: 0.82 },
-            end: circlePoints[circlePoints.length - 1],
-          },
-          stampOverrides: circlePoints,
-        },
-        spiral: {
-          points: {
-            start: spiralPoints[0],
-            controlA: { x: 0.95, y: 0.18 },
-            controlB: { x: 0.12, y: 0.84 },
-            end: spiralPoints[spiralPoints.length - 1],
-          },
-          stampOverrides: spiralPoints,
-        },
-      };
-      const preset = presets[name];
-      if (!preset) return;
-      state.creativityPath = JSON.parse(JSON.stringify(preset.points));
-      state.creativityStampOverrides = JSON.parse(JSON.stringify(preset.stampOverrides || []));
-      rebuildLayout();
-      updatePathEditor();
-    }
-
-    function updatePathEditor() {
-      if (!pathEditor) return;
-      const shouldShowEditor = pathControlsOpenRef.current || Boolean(activePathPoint);
-      pathEditor.classList.toggle("is-hidden", !shouldShowEditor);
-      if (!shouldShowEditor) return;
-      const showGuides = pathGuidesToggle?.checked ?? true;
-      pathEditor.classList.toggle("is-guides-hidden", !showGuides);
-      pathEditor.setAttribute("viewBox", `0 0 ${state.width} ${Math.max(state.renderHeight, state.height)}`);
-      const documentOffsetY = state.rawScrollY;
-      const toDocumentPoint = (point) => ({ x: point.x, y: point.y + documentOffsetY });
-      const points = {
-        start: toDocumentPoint(getCreativityPointScreen("start")),
-        controlA: toDocumentPoint(getCreativityPointScreen("controlA")),
-        controlB: toDocumentPoint(getCreativityPointScreen("controlB")),
-        end: toDocumentPoint(getCreativityPointScreen("end")),
-      };
-      const path = pathEditor.querySelector("[data-path-line]");
-      const handleA = pathEditor.querySelector("[data-handle-a]");
-      const handleB = pathEditor.querySelector("[data-handle-b]");
-      if (path) {
-        path.setAttribute(
-          "d",
-          `M ${points.start.x} ${points.start.y} C ${points.controlA.x} ${points.controlA.y}, ${points.controlB.x} ${points.controlB.y}, ${points.end.x} ${points.end.y}`
-        );
-      }
-      if (handleA) {
-        handleA.setAttribute("x1", points.start.x);
-        handleA.setAttribute("y1", points.start.y);
-        handleA.setAttribute("x2", points.controlA.x);
-        handleA.setAttribute("y2", points.controlA.y);
-      }
-      if (handleB) {
-        handleB.setAttribute("x1", points.end.x);
-        handleB.setAttribute("y1", points.end.y);
-        handleB.setAttribute("x2", points.controlB.x);
-        handleB.setAttribute("y2", points.controlB.y);
-      }
-      Object.entries(points).forEach(([key, point]) => {
-        const node = pathEditor.querySelector(`[data-path-point="${key}"]`);
-        if (!node) return;
-        node.setAttribute("cx", point.x);
-        node.setAttribute("cy", point.y);
-      });
-      const stampsLayer = pathEditor.querySelector("[data-stamp-points]");
-      if (stampsLayer) {
-        stampsLayer.replaceChildren();
-        state.creativityStamps.forEach((stamp, index) => {
-          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-          circle.setAttribute("data-stamp-index", `${index}`);
-          circle.setAttribute("class", "path-editor__stamp-point");
-          circle.setAttribute("cx", stamp.x);
-          circle.setAttribute("cy", stamp.y - state.scrollY + state.height * 0.18 + documentOffsetY);
-          circle.setAttribute("r", "5");
-          stampsLayer.appendChild(circle);
-        });
-      }
     }
 
     function getBottomSectionScreenY() {
@@ -1542,7 +1392,7 @@ export default function TraceDream() {
       if (drawBottomGhost) {
         bottomGhostCtx.clearRect(0, 0, state.width, state.bottomGhostCanvasHeight || state.height);
       }
-      if (pathControlsOpenRef.current || activePathPoint) updatePathEditor();
+      if (pathControlsOpenRef.current || pathEditorController.hasActivePoint()) pathEditorController.update();
       if (!mainTraceRenderer.draw()) return;
       if (drawBottomGhost) bottomGhostRenderer.draw();
       const creativityScreenTop = state.creativitySectionStart - state.scrollY + state.height * 0.18;
@@ -1582,64 +1432,6 @@ export default function TraceDream() {
       };
     }
 
-    function onPathPointerDown(event) {
-      const target = event.target.closest?.("[data-path-point], [data-stamp-index]");
-      if (!target) return;
-      activePathPoint = target.dataset.pathPoint
-        ? { type: "path", key: target.dataset.pathPoint }
-        : { type: "stamp", index: parseInt(target.dataset.stampIndex, 10) };
-      target.setPointerCapture?.(event.pointerId);
-      event.preventDefault();
-    }
-
-    function onPathPointerMove(event) {
-      if (!activePathPoint) return;
-      const worldY = event.clientY + state.scrollY - state.height * 0.18;
-      const rawX = clamp(event.clientX / Math.max(1, state.width), 0.02, 0.98);
-      const snapColumns = [0.1, 0.5, 0.9];
-      const snappedX = snapColumns.reduce((nearest, value) => (Math.abs(value - rawX) < Math.abs(nearest - rawX) ? value : nearest), snapColumns[0]);
-      const rawY = getCreativityRawY(worldY);
-      const rowGap = (state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativityBaseHeight);
-      const rowBase = state.creativityPath.start.y;
-      const snappedRow = Math.round((rawY - rowBase) / Math.max(0.001, rowGap));
-      const snappedY = clamp(rowBase + snappedRow * rowGap, 0.02, 0.98);
-      if (activePathPoint.type === "path") {
-        state.creativityPath[activePathPoint.key] = {
-          x: snappedX,
-          y: activePathPoint.key === "controlA" || activePathPoint.key === "controlB" ? rawY : snappedY,
-        };
-      } else {
-        const stampCount = "IN-CREATIVITY".length;
-        const t = activePathPoint.index / Math.max(1, stampCount - 1);
-        const basePoint = cubicPoint(
-          state.creativityPath.start,
-          state.creativityPath.controlA,
-          state.creativityPath.controlB,
-          state.creativityPath.end,
-          t
-        );
-        const snapBackDistance = Math.hypot((rawX - basePoint.x) * state.width, (rawY - basePoint.y) * state.creativityBaseHeight);
-        if (snapBackDistance < 56) {
-          delete state.creativityStampOverrides[activePathPoint.index];
-        } else {
-          state.creativityStampOverrides[activePathPoint.index] = {
-            x: rawX,
-            y: rawY,
-          };
-        }
-      }
-      queueCreativityPathRebuild(true);
-      event.preventDefault();
-    }
-
-    function onPathPointerUp() {
-      activePathPoint = null;
-    }
-
-    function onPathPresetClick(event) {
-      applyPathPreset(event.currentTarget.dataset.pathPreset);
-    }
-
     function rebuildFromControls() {
       syncControls();
       rebuildLayout();
@@ -1667,12 +1459,12 @@ export default function TraceDream() {
     traceViewport?.addEventListener("pointerdown", portalInteraction.onPointerDown);
     window.addEventListener("pointermove", portalInteraction.onPointerMove);
     window.addEventListener("pointerup", portalInteraction.onPointerUp);
-    pathEditor?.addEventListener("pointerdown", onPathPointerDown);
-    window.addEventListener("pointermove", onPathPointerMove);
-    window.addEventListener("pointerup", onPathPointerUp);
-    pathGuidesToggle?.addEventListener("input", updatePathEditor);
-    pathExportBtn?.addEventListener("click", syncPathExport);
-    pathPresetButtons.forEach((button) => button.addEventListener("click", onPathPresetClick));
+    pathEditor?.addEventListener("pointerdown", pathEditorController.onPointerDown);
+    window.addEventListener("pointermove", pathEditorController.onPointerMove);
+    window.addEventListener("pointerup", pathEditorController.onPointerUp);
+    pathGuidesToggle?.addEventListener("input", pathEditorController.update);
+    pathExportBtn?.addEventListener("click", pathEditorController.syncExport);
+    pathPresetButtons.forEach((button) => button.addEventListener("click", pathEditorController.onPresetClick));
     resize();
     render();
 
@@ -1688,12 +1480,12 @@ export default function TraceDream() {
       if (state.bottomVideo) gsap.killTweensOf(state.bottomVideo.reveal);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
-      pathEditor?.removeEventListener("pointerdown", onPathPointerDown);
-      window.removeEventListener("pointermove", onPathPointerMove);
-      window.removeEventListener("pointerup", onPathPointerUp);
-      pathGuidesToggle?.removeEventListener("input", updatePathEditor);
-      pathExportBtn?.removeEventListener("click", syncPathExport);
-      pathPresetButtons.forEach((button) => button.removeEventListener("click", onPathPresetClick));
+      pathEditor?.removeEventListener("pointerdown", pathEditorController.onPointerDown);
+      window.removeEventListener("pointermove", pathEditorController.onPointerMove);
+      window.removeEventListener("pointerup", pathEditorController.onPointerUp);
+      pathGuidesToggle?.removeEventListener("input", pathEditorController.update);
+      pathExportBtn?.removeEventListener("click", pathEditorController.syncExport);
+      pathPresetButtons.forEach((button) => button.removeEventListener("click", pathEditorController.onPresetClick));
       inputs.forEach((input) => input.removeEventListener("input", rebuildFromControls));
       creativityGapRange?.removeEventListener("input", rebuildCreativityFromControls);
       if (pendingCreativityRebuild) cancelAnimationFrame(pendingCreativityRebuild);

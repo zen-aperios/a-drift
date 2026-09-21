@@ -478,7 +478,10 @@ export default function TraceDream() {
 
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
-        for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
+        for (let i = 0; i < ghostCount; i += 1) {
+          if (state.ghosts[i]?.letter === state.anchors[0]?.letter) continue;
+          drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
+        }
         if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets);
         state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets));
         return;

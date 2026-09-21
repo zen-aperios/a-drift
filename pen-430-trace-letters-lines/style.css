@@ -1,0 +1,270 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap");
+
+:root {
+  --bg: #f7f5ef;
+  --panel: #383838;
+  --line: #5f5c57;
+  --text: #f3ede4;
+  --muted: rgba(243, 237, 228, 0.68);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "DM Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.scroll-shell {
+  position: relative;
+  width: 100%;
+}
+
+.scroll-spacer {
+  width: 100%;
+  min-height: 300vh;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.controls {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  user-select: none;
+}
+
+.controls__block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.controls__block:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  color: var(--text);
+  font: 700 16px/1.1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status {
+  margin: 0;
+  color: var(--muted);
+  font: 600 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--muted);
+  font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+label span {
+  color: var(--text);
+}
+
+textarea,
+select,
+button,
+input[type="color"] {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font: 600 12px/1.3 "DM Sans", system-ui, sans-serif;
+}
+
+textarea {
+  min-height: 4.8rem;
+  padding: 10px 12px;
+  resize: vertical;
+  text-transform: uppercase;
+}
+
+select {
+  min-height: 2.5rem;
+  padding: 0 12px;
+}
+
+button {
+  min-height: 2.5rem;
+  padding: 0 12px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+input[type="color"] {
+  min-height: 2.5rem;
+  padding: 0.22rem;
+  cursor: pointer;
+}
+
+input[type="range"] {
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--line);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5.5px;
+  border: 1px solid var(--line);
+  background: var(--text);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 1px;
+  border: 0;
+  background: var(--line);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--line);
+  background: var(--text);
+}
+
+@media (max-width: 820px) {
+  .controls {
+    width: calc(100vw - 24px);
+    top: 12px;
+    left: 12px;
+    max-height: min(54vh, 36rem);
+  }
+}
+
+/* Pen Brain light control-panel audit override */
+body.pen-control-panel-light :is(.panel, #panel, #uiPanel, .control-panel, .controls, .sidebar, .settings, .drawer, .toolbar, .topbar, .lil-gui) {
+  color: #2f2f2f !important;
+  background: #d8d7d2 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+body.pen-control-panel-light :is(.controls__block, .control-group, .field, .row, .section, .panel__col, .folder, .gui-row, .lil-gui .controller) {
+  color: #2f2f2f !important;
+  background: transparent !important;
+  border-color: rgba(47, 47, 47, .28) !important;
+  box-shadow: none !important;
+}
+
+body.pen-control-panel-light :is(h1, h2, h3, h4, label, .label, .eyebrow, .meta, small, output, .value, .muted) {
+  color: #2f2f2f !important;
+}
+
+body.pen-control-panel-light :is(input, select, textarea, button) {
+  color: #2f2f2f !important;
+  background: rgba(47, 47, 47, .06) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+body.pen-control-panel-light input[type="range"] {
+  height: 18px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+}
+
+body.pen-control-panel-light input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(47, 47, 47, .42) !important;
+}
+
+body.pen-control-panel-light input[type="range"]::-webkit-slider-thumb {
+  width: 12px !important;
+  height: 12px !important;
+  margin-top: -5px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #2f2f2f !important;
+}
+
+body.pen-control-panel-light input[type="range"]::-moz-range-track {
+  height: 2px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(47, 47, 47, .42) !important;
+}
+
+body.pen-control-panel-light input[type="range"]::-moz-range-thumb {
+  width: 12px !important;
+  height: 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #2f2f2f !important;
+}
+

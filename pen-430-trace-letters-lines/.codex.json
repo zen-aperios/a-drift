@@ -1,0 +1,15 @@
+{
+  "title": "Scroll Ghost Curve Columns",
+  "notes": "",
+  "libraries": [
+    {
+      "name": "GSAP",
+      "url": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
+    },
+    {
+      "name": "Lenis",
+      "url": "https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/bundled/lenis.min.js"
+    }
+  ],
+  "tags": []
+}

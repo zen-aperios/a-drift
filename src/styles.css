@@ -1,0 +1,100 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color: #ffffff;
+  background: #000000;
+  font-family: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  background: #000000;
+}
+
+.dream-app {
+  min-height: 100vh;
+  background: #000000;
+}
+
+.sphere-stage,
+.trace-stage {
+  position: relative;
+  min-height: 100vh;
+  background: #000000;
+}
+
+.sphere-canvas,
+.sphere-canvas canvas,
+.trace-canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sphere-stage {
+  overflow: hidden;
+  cursor: grab;
+}
+
+.sphere-stage.is-holding {
+  cursor: grabbing;
+}
+
+.sphere-stage::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--flash, 0);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.82), transparent 42%);
+  mix-blend-mode: screen;
+}
+
+.hold-meter {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  z-index: 3;
+  width: min(240px, calc(100vw - 56px));
+  height: 2px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.18);
+  opacity: 0.75;
+}
+
+.hold-meter span {
+  display: block;
+  width: calc(var(--hold-progress, 0) * 100%);
+  height: 100%;
+  background: #ffffff;
+}
+
+.trace-stage {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.trace-spacer {
+  width: 100%;
+  min-height: 300vh;
+}

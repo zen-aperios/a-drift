@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trace Letters Lines</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../../assets/pen-control-panel-light.css" />
+  </head>
+  <body class="pen-control-panel-light">
+    <main class="scroll-shell">
+      <canvas id="trailCanvas"></canvas>
+      <div id="scrollSpacer" class="scroll-spacer" aria-hidden="true"></div>
+    </main>
+
+    <aside class="controls">
+      <div class="controls__block">
+        <p class="eyebrow">Pen Reference Build</p>
+        <h1>Trace Letters Lines</h1>
+        <p class="status">A sparse four-ghost idle trace fades from light to dark, then hands off to the full scroll reveal.</p>
+      </div>
+
+      <div class="controls__block">
+        <label for="lettersInput">Letters</label>
+        <textarea id="lettersInput" rows="3">APERIOS</textarea>
+
+        <label for="fontSizeRange">Font Size <span id="fontSizeVal"></span></label>
+        <input id="fontSizeRange" type="range" min="48" max="220" step="1" value="116" />
+
+        <label for="rowGapRange">Row Gap <span id="rowGapVal"></span></label>
+        <input id="rowGapRange" type="range" min="20" max="80" step="1" value="70" />
+      </div>
+
+      <div class="controls__block">
+        <label for="sampleDistanceRange">Stagger Offset <span id="sampleDistanceVal"></span></label>
+        <input id="sampleDistanceRange" type="range" min="0" max="120" step="1" value="0" />
+
+        <label for="maxTrailRange">Ghost Count <span id="maxTrailVal"></span></label>
+        <input id="maxTrailRange" type="range" min="4" max="1200" step="1" value="1200" />
+
+        <label for="curvePullRange">Curve Pull <span id="curvePullVal"></span></label>
+        <input id="curvePullRange" type="range" min="0" max="700" step="1" value="700" />
+
+        <label for="scrollEaseRange">Scroll Ease <span id="scrollEaseVal"></span></label>
+        <input id="scrollEaseRange" type="range" min="0.05" max="1" step="0.01" value="0.93" />
+      </div>
+
+      <div class="controls__block">
+        <label for="ghostOpacityRange">Ghost Opacity <span id="ghostOpacityVal"></span></label>
+        <input id="ghostOpacityRange" type="range" min="0.05" max="1" step="0.01" value="1" />
+
+        <label for="ghostLineWidthRange">Ghost Line Width <span id="ghostLineWidthVal"></span></label>
+        <input id="ghostLineWidthRange" type="range" min="0.4" max="4" step="0.1" value="1" />
+
+        <label class="toggle-row" for="warpToggle">
+          <span>Warp Letters</span>
+          <input id="warpToggle" type="checkbox" checked />
+        </label>
+
+        <label for="warpAmountRange">Warp Amount <span id="warpAmountVal"></span></label>
+        <input id="warpAmountRange" type="range" min="0" max="48" step="1" value="14" />
+
+        <label for="warpFrequencyRange">Warp Frequency <span id="warpFrequencyVal"></span></label>
+        <input id="warpFrequencyRange" type="range" min="0.2" max="3" step="0.05" value="1.05" />
+
+        <label class="toggle-row" for="rotateToggle">
+          <span>Rotate Letters</span>
+          <input id="rotateToggle" type="checkbox" />
+        </label>
+
+        <label for="rotateSpeedRange">Rotate Amount <span id="rotateSpeedVal"></span></label>
+        <input id="rotateSpeedRange" type="range" min="0" max="4" step="0.05" value="0.35" />
+      </div>
+
+      <div class="controls__block">
+        <label for="fillColorInput">Solid Fill</label>
+        <input id="fillColorInput" type="color" value="#ffffff" />
+
+        <label for="ghostColorInput">Ghost Color</label>
+        <input id="ghostColorInput" type="color" value="#8b8b8b" />
+
+        <label for="bgColorInput">Background</label>
+        <input id="bgColorInput" type="color" value="#000000" />
+      </div>
+
+      <div class="controls__block">
+        <button id="rebuildBtn" type="button">Rebuild Layout</button>
+      </div>
+    </aside>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -23,9 +23,17 @@ export function createPortalRenderer({
   function draw() {
     let hasVisibleBackPortal = false;
     let hasVisibleFrontPortal = false;
+
+    function setDomStyle(item, key, value) {
+      const style = item.domStyle || (item.domStyle = {});
+      if (style[key] === value) return;
+      style[key] = value;
+      item.domNode.style[key] = value;
+    }
+
     state.portalImages.forEach((item) => {
       if (item.mesh) item.mesh.visible = false;
-      if (item.domNode) item.domNode.style.display = "none";
+      if (item.domNode) setDomStyle(item, "display", "none");
       item.renderFrame = null;
       item.visibleRenderFrame = null;
     });
@@ -63,12 +71,12 @@ export function createPortalRenderer({
         if (item.domNode.parentNode !== targetLayer) targetLayer.appendChild(item.domNode);
         if (item.layer === "front") hasVisibleFrontPortal = true;
         else hasVisibleBackPortal = true;
-        item.domNode.style.display = "block";
-        item.domNode.style.width = `${width}px`;
-        item.domNode.style.height = `${height}px`;
-        item.domNode.style.opacity = `${eased}`;
-        item.domNode.style.clipPath = `inset(${(1 - eased) * 100}% 0 0 0)`;
-        item.domNode.style.transform = `translate3d(${item.x - width * 0.5}px, ${documentY - height * 0.5}px, 0)`;
+        setDomStyle(item, "display", "block");
+        setDomStyle(item, "width", `${width}px`);
+        setDomStyle(item, "height", `${height}px`);
+        setDomStyle(item, "opacity", `${eased}`);
+        setDomStyle(item, "clipPath", `inset(${(1 - eased) * 100}% 0 0 0)`);
+        setDomStyle(item, "transform", `translate3d(${item.x - width * 0.5}px, ${documentY - height * 0.5}px, 0)`);
         return;
       }
 

@@ -82,7 +82,7 @@ export function createPortalAssetController({
       const item = {
         src, index, texture: null, mesh: null, material: null, aspect: 0.76,
         layer: initialPlacement?.layer || "back", x: state.width * 0.5, y: 0, width: 220, height: 290,
-        reveal: { progress: 0, target: 0 },
+        reveal: { progress: 0, target: 0 }, domStyle: {},
       };
       if (initialPlacement) {
         item.manualPlacement = {

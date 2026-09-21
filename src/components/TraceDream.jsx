@@ -61,9 +61,10 @@ export default function TraceDream() {
     window.scrollTo({ top: 0, behavior: "instant" });
     const useDomPortalImages = navigator.userAgent.toLowerCase().includes("firefox");
 
-    const ctx = canvas.getContext("2d");
-    const bottomCtx = bottomCanvas.getContext("2d");
-    const bottomGhostCtx = bottomGhostCanvas.getContext("2d");
+    const canvasContextOptions = useDomPortalImages ? { desynchronized: true } : undefined;
+    const ctx = canvas.getContext("2d", canvasContextOptions);
+    const bottomCtx = bottomCanvas.getContext("2d", canvasContextOptions);
+    const bottomGhostCtx = bottomGhostCanvas.getContext("2d", canvasContextOptions);
     const mediaBackRenderer = createMediaRenderer(mediaBackCanvas);
     const mediaFrontRenderer = createMediaRenderer(mediaFrontCanvas);
     const mediaBackScene = new THREE.Scene();

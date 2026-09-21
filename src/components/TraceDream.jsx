@@ -223,9 +223,11 @@ export default function TraceDream() {
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
 
-      let cursorX = firstAnchor.x + state.fontSize * 0.72;
+      const phrase = `A ${text}`;
+      const phraseWidth = ctx.measureText(phrase).width;
+      let cursorX = state.width * 0.5 - phraseWidth * 0.5;
       const chars = [];
-      Array.from(text).forEach((char) => {
+      Array.from(phrase).forEach((char) => {
         const width = ctx.measureText(char).width;
         if (char !== " ") chars.push(createStamp(cursorX + width * 0.5, firstAnchor.y, char, true));
         cursorX += width;
@@ -447,9 +449,6 @@ export default function TraceDream() {
       if (!state.hasScrolled) {
         const topGhostOffsets = getTopGhostOffsets();
         for (let i = 0; i < ghostCount; i += 1) drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
-        for (let i = 0; i < Math.min(anchorCount, state.anchors.length); i += 1) {
-          drawStamp(state.anchors[i], true, i, state.anchors.length);
-        }
         state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets));
         return;
       }

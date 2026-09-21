@@ -333,6 +333,7 @@ html.lenis body {
   margin-left: calc(50% - 50vw);
   margin-top: 8rem;
   min-height: calc(30vh + 100px);
+  border-right: 0 !important;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: #000000;
 }
@@ -355,8 +356,8 @@ html.lenis body {
 .site-footer__grid span:nth-child(n + 4) {
   padding-top: 0;
   padding-bottom: 0;
+  border-right: 0 !important;
   border-top: 1px solid rgba(255, 255, 255, 0.28);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .site-footer__lottie-cell {

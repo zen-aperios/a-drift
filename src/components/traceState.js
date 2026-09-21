@@ -3,6 +3,8 @@ export function createTraceState() {
     width: 0,
     height: 0,
     renderHeight: 0,
+    traceCanvasTop: 0,
+    traceCanvasHeight: 0,
     dpr: 1,
     fontSize: 160,
     rowGapVh: 90,

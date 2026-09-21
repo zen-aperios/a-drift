@@ -146,7 +146,7 @@ export function createGlyphRenderer({ ctx, state, heroDismissEase, scrollCue, ge
     ctx.fillStyle = state.fillColor;
     const fade = heroDismissEase(clamp((scrollCue.exit - 0.82) / 0.18, 0, 1));
     ctx.globalAlpha = opacity * (1 - fade) * 0.9;
-    ctx.fillText("SCROLL", state.width * 0.5, state.height - 16);
+    ctx.fillText("SCROLL", state.width * 0.5, state.traceCanvasTop + state.height - 16);
     ctx.restore();
   }
 

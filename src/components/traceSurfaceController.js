@@ -31,17 +31,44 @@ export function createTraceSurfaceController({
     return Math.max(...worldYs) + Math.max(160, state.height * 0.16);
   }
 
+  function syncTraceCanvasWindow() {
+    const renderHeight = Math.max(state.renderHeight || state.totalHeight || state.height, state.height);
+    const traceCanvasHeight = state.traceCanvasHeight || Math.max(state.height * 2, 1);
+    const nextTop = Math.min(
+      Math.max(0, renderHeight - traceCanvasHeight),
+      Math.max(0, state.rawScrollY - state.height * 0.5)
+    );
+    state.traceCanvasTop = nextTop;
+    canvas.style.top = `${nextTop}px`;
+    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    ctx.clearRect(0, 0, state.width, state.traceCanvasHeight);
+    ctx.translate(0, -nextTop);
+  }
+
   function syncRenderSurfaces() {
     const renderHeight = Math.max(state.renderHeight || state.totalHeight || state.height, state.height);
     const canvasWidth = Math.round(state.width * state.dpr);
     const canvasHeight = Math.round(renderHeight * state.dpr);
 
-    [canvas, bottomCanvas].forEach((targetCanvas) => {
+    const traceCanvasHeight = Math.max(state.height * 2, 1);
+    const maxTraceCanvasTop = Math.max(0, renderHeight - traceCanvasHeight);
+    const traceCanvasTop = Math.min(
+      maxTraceCanvasTop,
+      Math.max(0, state.rawScrollY - state.height * 0.5)
+    );
+    state.traceCanvasTop = traceCanvasTop;
+    state.traceCanvasHeight = traceCanvasHeight;
+
+    if (canvas.width !== canvasWidth) canvas.width = canvasWidth;
+    if (canvas.height !== Math.round(traceCanvasHeight * state.dpr)) canvas.height = Math.round(traceCanvasHeight * state.dpr);
+    canvas.style.top = `${traceCanvasTop}px`;
+    canvas.style.height = `${traceCanvasHeight}px`;
+
+    [bottomCanvas].forEach((targetCanvas) => {
       if (targetCanvas.width !== canvasWidth) targetCanvas.width = canvasWidth;
       if (targetCanvas.height !== canvasHeight) targetCanvas.height = canvasHeight;
       targetCanvas.style.height = `${renderHeight}px`;
     });
-    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
     bottomCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
 
     const bottomGhostTop = Math.max(0, state.bottomSectionStart - state.height * 0.35);
@@ -79,5 +106,5 @@ export function createTraceSurfaceController({
     syncRenderSurfaces();
   }
 
-  return { syncRenderSurfaces, syncTraceSpacerHeight };
+  return { syncRenderSurfaces, syncTraceSpacerHeight, syncTraceCanvasWindow };
 }

@@ -12,15 +12,14 @@ export function createTraceRuntimeController({
   bottomGhostRenderer,
   diagonalGhostRenderer,
   drawPortalResizeHandles,
+  syncTraceCanvasWindow,
 }) {
   function render(dt) {
     state.heroWarpPhase += dt * state.heroWarpSpeed;
     bottomSectionController.update();
     mediaBackRenderer.clear();
     mediaFrontRenderer.clear();
-    const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
-    const clearHeight = state.height * 2.5;
-    ctx.clearRect(0, clearY, state.width, clearHeight);
+    syncTraceCanvasWindow();
 
     // Editor-only canvas work is disabled while its panel/grid is hidden.
     const editorIsActive = !state.hidePlacementGrid || Boolean(
@@ -29,6 +28,8 @@ export function createTraceRuntimeController({
       portalInteractionState.selectedPortalItem
     );
     if (editorIsActive || state.editorWasVisible) {
+      const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
+      const clearHeight = state.height * 2.5;
       bottomCtx.clearRect(0, clearY, state.width, clearHeight);
     }
     state.editorWasVisible = editorIsActive;

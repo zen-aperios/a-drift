@@ -45,11 +45,22 @@ export function createTraceSurfaceController({
     ctx.translate(0, -nextTop);
   }
 
+  function syncEditorCanvasWindow() {
+    const renderHeight = Math.max(state.renderHeight || state.totalHeight || state.height, state.height);
+    const canvasHeight = state.traceCanvasHeight || Math.max(state.height * 2, 1);
+    const nextTop = Math.min(
+      Math.max(0, renderHeight - canvasHeight),
+      Math.max(0, state.rawScrollY - state.height * 0.5)
+    );
+    bottomCanvas.style.top = `${nextTop}px`;
+    bottomCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    bottomCtx.clearRect(0, 0, state.width, canvasHeight);
+    bottomCtx.translate(0, -nextTop);
+  }
+
   function syncRenderSurfaces() {
     const renderHeight = Math.max(state.renderHeight || state.totalHeight || state.height, state.height);
     const canvasWidth = Math.round(state.width * state.dpr);
-    const canvasHeight = Math.round(renderHeight * state.dpr);
-
     const traceCanvasHeight = Math.max(state.height * 2, 1);
     const maxTraceCanvasTop = Math.max(0, renderHeight - traceCanvasHeight);
     const traceCanvasTop = Math.min(
@@ -64,12 +75,10 @@ export function createTraceSurfaceController({
     canvas.style.top = `${traceCanvasTop}px`;
     canvas.style.height = `${traceCanvasHeight}px`;
 
-    [bottomCanvas].forEach((targetCanvas) => {
-      if (targetCanvas.width !== canvasWidth) targetCanvas.width = canvasWidth;
-      if (targetCanvas.height !== canvasHeight) targetCanvas.height = canvasHeight;
-      targetCanvas.style.height = `${renderHeight}px`;
-    });
-    bottomCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    if (bottomCanvas.width !== canvasWidth) bottomCanvas.width = canvasWidth;
+    if (bottomCanvas.height !== Math.round(traceCanvasHeight * state.dpr)) bottomCanvas.height = Math.round(traceCanvasHeight * state.dpr);
+    bottomCanvas.style.top = `${traceCanvasTop}px`;
+    bottomCanvas.style.height = `${traceCanvasHeight}px`;
 
     const bottomGhostTop = Math.max(0, state.bottomSectionStart - state.height * 0.35);
     const bottomGhostHeight = Math.max(state.height * 1.2, state.bottomSectionHeight + state.height * 0.35);
@@ -106,5 +115,5 @@ export function createTraceSurfaceController({
     syncRenderSurfaces();
   }
 
-  return { syncRenderSurfaces, syncTraceSpacerHeight, syncTraceCanvasWindow };
+  return { syncRenderSurfaces, syncTraceSpacerHeight, syncTraceCanvasWindow, syncEditorCanvasWindow };
 }

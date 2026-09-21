@@ -13,6 +13,7 @@ export function createTraceRuntimeController({
   diagonalGhostRenderer,
   drawPortalResizeHandles,
   syncTraceCanvasWindow,
+  syncEditorCanvasWindow,
 }) {
   function render(dt) {
     state.heroWarpPhase += dt * state.heroWarpSpeed;
@@ -27,11 +28,7 @@ export function createTraceRuntimeController({
       portalInteractionState.hoveredPortalCorner ||
       portalInteractionState.selectedPortalItem
     );
-    if (editorIsActive || state.editorWasVisible) {
-      const clearY = Math.max(0, state.rawScrollY - state.height * 0.75);
-      const clearHeight = state.height * 2.5;
-      bottomCtx.clearRect(0, clearY, state.width, clearHeight);
-    }
+    if (editorIsActive || state.editorWasVisible) syncEditorCanvasWindow();
     state.editorWasVisible = editorIsActive;
 
     const bottomGhostScreenTop = state.bottomGhostCanvasTop - state.rawScrollY;

@@ -387,6 +387,7 @@ export default function TraceDream() {
       diagonalGhostRenderer,
       drawPortalResizeHandles,
       syncTraceCanvasWindow: () => surfaceController?.syncTraceCanvasWindow(),
+      syncEditorCanvasWindow: () => surfaceController?.syncEditorCanvasWindow(),
     });
 
     const traceScheduler = createTraceScheduler({ onFrame: traceRuntimeController.render });

@@ -136,8 +136,8 @@ body {
 
 .controls--path {
   right: 16px;
-  bottom: 16px;
-  top: auto;
+  top: 16px;
+  bottom: auto;
   left: auto;
   z-index: 14;
 }
@@ -155,10 +155,13 @@ body {
 .logo-sequence {
   position: relative;
   display: grid;
-  place-items: center;
-  height: 100vh;
-  min-height: 100vh;
-  background: #000000;
+  place-items: end center;
+  align-content: end;
+  gap: calc(18px + 1rem);
+  height: 62vh;
+  min-height: 420px;
+  padding-bottom: clamp(48px, 12vh, 140px);
+  background: transparent;
   overflow: hidden;
 }
 
@@ -175,7 +178,7 @@ body {
 
 .logo-sequence__mark {
   position: relative;
-  width: min(28.9vw, 306px);
+  width: min(20.8vw, 220px);
   aspect-ratio: 615 / 574;
   isolation: isolate;
 }
@@ -185,6 +188,7 @@ body {
 .logo-sequence__solid {
   position: absolute;
   inset: 0;
+  overflow: visible;
   shape-rendering: geometricPrecision;
   text-rendering: geometricPrecision;
 }
@@ -194,7 +198,6 @@ body {
 }
 
 .logo-sequence__ghost {
-  overflow: visible;
   will-change: opacity, transform;
 }
 
@@ -220,8 +223,48 @@ body {
   shape-rendering: geometricPrecision;
 }
 
+.logo-sequence__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  width: max-content;
+  color: #ffffff;
+  font-family: "Geist", "Neue Haas Grotesk Text", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.logo-sequence__caption-title {
+  font-family: "Neue Haas Grotesk Text", "Helvetica Neue", Arial, sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.03rem;
+  white-space: nowrap;
+}
+
+.logo-sequence__caption-byline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.logo-sequence__caption-line {
+  flex: 1;
+  height: 1px;
+  min-width: 24px;
+  background: #ffffff;
+  opacity: 0.8;
+}
+
 .controls {
-  position: fixed;
+  position: absolute;
   top: 16px;
   left: 16px;
   z-index: 10;
@@ -257,8 +300,8 @@ body {
 }
 
 .controls-toggle {
-  position: fixed;
-  top: 50%;
+  position: absolute;
+  top: 50vh;
   left: 0;
   z-index: 12;
   width: 32px;
@@ -273,8 +316,8 @@ body {
 }
 
 .path-controls-toggle {
-  position: fixed;
-  top: calc(50% + 88px);
+  position: absolute;
+  top: calc(50vh + 88px);
   right: 0;
   z-index: 15;
   width: 32px;

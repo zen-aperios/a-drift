@@ -7,7 +7,7 @@ const LOGO_PATH =
 const GHOST_COUNT = 4;
 const GHOSTS = Array.from({ length: GHOST_COUNT }, (_, index) => index);
 const GHOST_GAP = 12;
-const WARP_SLICES = 34;
+const WARP_SLICES = 96;
 
 const LogoSvg = forwardRef(function LogoSvg({ className, pathClassName }, ref) {
   const reactId = useId().replace(/:/g, "");
@@ -17,10 +17,10 @@ const LogoSvg = forwardRef(function LogoSvg({ className, pathClassName }, ref) {
       <defs>
         {Array.from({ length: WARP_SLICES }, (_, index) => {
           const y = (574 / WARP_SLICES) * index;
-          const height = 574 / WARP_SLICES + 1.5;
+          const height = 574 / WARP_SLICES + 2.5;
           return (
             <clipPath key={index} id={`${clipId}-${index}`}>
-              <rect x="-40" y={y} width="695" height={height} />
+              <rect x="-160" y={y - 1.5} width="935" height={height + 3} />
             </clipPath>
           );
         })}
@@ -57,7 +57,7 @@ export default function LogoCardSequence() {
       syncGhosts();
       gsap.to(cycle, {
         phase: GHOST_COUNT,
-        duration: 2.4,
+        duration: 4.2,
         ease: "none",
         repeat: -1,
         onUpdate: syncGhosts,
@@ -77,10 +77,9 @@ export default function LogoCardSequence() {
 
       syncWarp();
       gsap.to(warpState, {
-        phase: Math.PI * 2,
-        duration: 2.8,
+        phase: Math.PI * 2000,
+        duration: 2800,
         ease: "none",
-        repeat: -1,
         onUpdate: syncWarp,
       });
     }, sectionRef);
@@ -89,7 +88,7 @@ export default function LogoCardSequence() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="logo-sequence" aria-label="Logo sequence">
+    <footer ref={sectionRef} className="logo-sequence" aria-label="Logo sequence">
       <div className="logo-sequence__mark" aria-hidden="true">
         <div className="logo-sequence__ghosts">
           {GHOSTS.map((ghost) => (
@@ -105,6 +104,14 @@ export default function LogoCardSequence() {
         </div>
         <LogoSvg className="logo-sequence__solid" pathClassName="logo-sequence__solid-path" />
       </div>
-    </section>
+      <div className="logo-sequence__caption">
+        <span className="logo-sequence__caption-title">Clone Experiment</span>
+        <span className="logo-sequence__caption-byline">
+          <span>BY</span>
+          <span className="logo-sequence__caption-line" aria-hidden="true" />
+          <span>ROBERT APERIOS</span>
+        </span>
+      </div>
+    </footer>
   );
 }

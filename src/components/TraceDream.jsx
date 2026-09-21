@@ -12,6 +12,7 @@ import { applyPortalLayout } from "./portalLayout.js";
 import { clamp, cubicPoint, lerp, seededRandom } from "./traceMath.js";
 import { createBottomGhostRenderer } from "./bottomGhostRenderer.js";
 import { createDiagonalGhostRenderer } from "./diagonalGhostRenderer.js";
+import LogoCardSequence from "./LogoCardSequence.jsx";
 
 const LETTERS = "APERIOS".split("");
 const BOTTOM_VIDEO_URL = new URL("../../logofolio 2026-aperios-design.mp4", import.meta.url).href;
@@ -58,6 +59,7 @@ export default function TraceDream() {
     const noiseTexture = createNoiseTexture(seededRandom);
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
+    const getLogoSection = () => stage.querySelector(".logo-sequence");
     const glyphCache = new Map();
     let cancelled = false;
     const state = {
@@ -92,6 +94,7 @@ export default function TraceDream() {
       creativitySegments: [],
       creativitySectionStart: 0,
       creativitySectionHeight: 0,
+      creativityBaseHeight: 0,
       creativitySceneMinY: 0,
       creativitySceneSpanY: 1,
       creativityGapVh: 10,
@@ -600,6 +603,7 @@ export default function TraceDream() {
     function syncCreativitySceneMetrics(nextStart = state.creativitySectionStart) {
       const nodeBounds = getCreativityNodeYBounds();
       const baseHeight = state.height * (state.creativityGapVh / 100) * Math.max(1, "IN-CREATIVITY".length - 1) + state.height * 0.72;
+      state.creativityBaseHeight = baseHeight;
       state.creativitySceneMinY = nodeBounds.min;
       state.creativitySceneSpanY = nodeBounds.span;
       state.creativitySectionStart = nextStart;
@@ -661,8 +665,7 @@ export default function TraceDream() {
     }
 
     function getCreativityRawY(worldY) {
-      const sectionY = clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativitySectionHeight), 0, 1);
-      return clamp(state.creativitySceneMinY + sectionY * state.creativitySceneSpanY, 0.02, 0.98);
+      return clamp((worldY - state.creativitySectionStart) / Math.max(1, state.creativityBaseHeight), 0.02, 0.98);
     }
 
     function syncPathExport() {
@@ -877,8 +880,9 @@ export default function TraceDream() {
       const targetScroll = window.scrollY || window.pageYOffset || 0;
       const progress = clamp(targetScroll / maxScroll, 0, 1);
       const isReturningToHero = targetScroll <= 2 && state.heroDismiss > 0.001;
-      const traceBottom = scrollSpacer.offsetTop + scrollSpacer.offsetHeight;
-      stage.classList.toggle("is-past-trace", targetScroll >= traceBottom - 2);
+      const logoSection = getLogoSection();
+      const handoffY = logoSection ? logoSection.offsetTop : scrollSpacer.offsetTop + scrollSpacer.offsetHeight;
+      stage.classList.toggle("is-past-trace", targetScroll >= handoffY - state.height * 0.04);
       state.rawScrollY = targetScroll;
       if (targetScroll > 2) state.hasScrolled = true;
 
@@ -1400,7 +1404,7 @@ export default function TraceDream() {
       const snapColumns = [0.1, 0.5, 0.9];
       const snappedX = snapColumns.reduce((nearest, value) => (Math.abs(value - rawX) < Math.abs(nearest - rawX) ? value : nearest), snapColumns[0]);
       const rawY = getCreativityRawY(worldY);
-      const rowGap = ((state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativitySectionHeight)) * state.creativitySceneSpanY;
+      const rowGap = (state.height * (state.creativityGapVh / 100)) / Math.max(1, state.creativityBaseHeight);
       const rowBase = state.creativityPath.start.y;
       const snappedRow = Math.round((rawY - rowBase) / Math.max(0.001, rowGap));
       const snappedY = clamp(rowBase + snappedRow * rowGap, 0.02, 0.98);
@@ -1419,7 +1423,7 @@ export default function TraceDream() {
           state.creativityPath.end,
           t
         );
-        const snapBackDistance = Math.hypot((rawX - basePoint.x) * state.width, (rawY - basePoint.y) * state.creativitySectionHeight);
+        const snapBackDistance = Math.hypot((rawX - basePoint.x) * state.width, (rawY - basePoint.y) * state.creativityBaseHeight);
         if (snapBackDistance < 56) {
           delete state.creativityStampOverrides[activePathPoint.index];
         } else {
@@ -1709,6 +1713,7 @@ export default function TraceDream() {
           <textarea id="creativityPathExport" rows="11" readOnly />
         </div>
       </aside>
+      <LogoCardSequence />
     </section>
   );
 }

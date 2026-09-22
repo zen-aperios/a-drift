@@ -34,7 +34,7 @@ export function createHeroLayoutController({ state, ctx, glyphRenderer, getLette
     const bounds = [];
     const aGlyph = glyphRenderer.getGlyphCanvas("A", true);
     bounds.push({ x: 0, width: aGlyph.width + state.warpAmount * 2 });
-    "DREAM".split("").forEach((char) => {
+    "DRIFT".split("").forEach((char) => {
       const advance = ctx.measureText(char).width;
       const glyph = glyphRenderer.getGlyphCanvas(char, true);
       bounds.push({ x: cursorX + advance * 0.5, width: glyph.width + state.warpAmount * 2 });
@@ -56,7 +56,7 @@ export function createHeroLayoutController({ state, ctx, glyphRenderer, getLette
     ctx.textBaseline = "middle";
     let cursorX = firstAnchor.x + getHeroLeadAdvance();
     const chars = [];
-    Array.from("DREAM").forEach((char) => {
+    Array.from("DRIFT").forEach((char) => {
       const advance = ctx.measureText(char).width;
       chars.push(createStamp(cursorX + advance * 0.5, firstAnchor.y, char, true));
       cursorX += advance + state.fontSize * 0.015;

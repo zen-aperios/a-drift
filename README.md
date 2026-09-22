@@ -1,6 +1,6 @@
-# A Dream
+# A Drift
 
-Experimental React/Vite build for the A Dream trace-letter sequence, portal media reveals, editable path drawing, and footer logo clone study.
+Experimental React/Vite build for the A Drift trace-letter sequence, portal media reveals, editable path drawing, and footer logo clone study.
 
 ## Local Development
 

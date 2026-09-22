@@ -58,6 +58,589 @@ html.lenis body {
   overflow-x: hidden;
 }
 
+.rhodes-audio-button {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1002;
+  display: grid;
+  width: 124px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  color: #ffffff;
+  background: #000000;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rhodes-audio-button:hover {
+  border-color: #ffffff;
+}
+
+.bass-pattern-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.9rem;
+  z-index: 1002;
+  min-width: 124px;
+  height: 28px;
+  padding: 0 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.82);
+  background: #000000;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.bass-pattern-toggle:hover,
+.bass-pattern-toggle[aria-expanded="true"] {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.bass-pattern-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 7.2rem;
+  z-index: 1002;
+  width: min(300px, calc(100vw - 2rem));
+  max-height: min(560px, calc(100vh - 8.5rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.82);
+  background: #000000;
+}
+
+.bass-pattern-panel__heading {
+  margin-bottom: 0.75rem;
+  color: #ffffff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bass-pattern-panel__controls {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.bass-pattern-panel__style {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+}
+
+.bass-pattern-panel__style select {
+  width: 100%;
+  height: 30px;
+  padding: 0 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0;
+  color: #ffffff;
+  background: #000000;
+  font: inherit;
+  font-size: 10px;
+}
+
+.bass-pattern-panel__control {
+  display: grid;
+  gap: 0.28rem;
+  font-size: 10px;
+}
+
+.bass-pattern-panel__control span {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bass-pattern-panel__control output {
+  color: #ffffff;
+}
+
+.bass-pattern-panel__control input {
+  width: 100%;
+  accent-color: #ffffff;
+}
+
+.bass-pattern-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.bass-pattern-panel__grid button {
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.bass-pattern-panel__grid button:hover,
+.bass-pattern-panel__grid button.is-active {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.bass-pattern-panel__heading--secondary {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.bass-pattern-panel__named-list {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.bass-pattern-panel__named-list button {
+  min-height: 28px;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.76);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bass-pattern-panel__named-list button:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sound-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 4.5rem;
+  z-index: 1002;
+  width: min(360px, calc(100vw - 2rem));
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: #000000;
+}
+
+.rhodes-sound-panel__title {
+  margin-bottom: 0.75rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rhodes-sound-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.rhodes-sound-panel button {
+  min-height: 28px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  color: rgba(255, 255, 255, 0.82);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rhodes-sound-panel button:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.rhodes-sequencer-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 4.5rem;
+  z-index: 1002;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: #000000;
+}
+
+.rhodes-sequencer-panel__steps {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.rhodes-sequencer-panel__step {
+  display: grid;
+  min-width: 0;
+  min-height: 36px;
+  gap: 0.2rem;
+  place-items: center;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.7);
+  background: #000000;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__hint {
+  margin: -0.25rem 0 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+}
+
+.rhodes-sequencer-panel__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0 0 0.75rem;
+}
+
+.rhodes-sequencer-panel__presets button {
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.78);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__presets button:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__layers {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.rhodes-sequencer-panel__layers > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px 28px;
+  gap: 0.25rem;
+}
+
+.rhodes-sequencer-panel__layers button {
+  min-width: 0;
+  padding: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__layers > div.is-selected button:first-child,
+.rhodes-sequencer-panel__layers button:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__layers .rhodes-sequencer-panel__add-layer {
+  text-align: center;
+}
+
+.rhodes-sequencer-panel__stamp-bar {
+  position: sticky;
+  top: -1rem;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 -0.25rem 0.7rem;
+  padding: 0.55rem 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.55);
+  background: #000000;
+  font-size: 9px;
+}
+
+.rhodes-sequencer-panel__stamp-bar strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rhodes-sequencer-panel__step strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 7px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rhodes-sequencer-panel__step.is-selected {
+  border-color: #ffffff;
+}
+
+.rhodes-sequencer-panel__step.is-active {
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__step.is-active strong {
+  color: #000000;
+}
+
+.rhodes-sequencer-panel__step.is-ghost {
+  border-color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.rhodes-sequencer-panel__step.is-ghost-soft {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.rhodes-sequencer-panel__step.is-editing {
+  animation: sequencer-edit-flash 0.7s steps(2, end) infinite;
+}
+
+.rhodes-sequencer-panel__editor {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.rhodes-sequencer-panel__stamp {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.32);
+}
+
+.rhodes-sequencer-panel__stamp-current {
+  margin: -0.25rem 0 0.75rem;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.rhodes-sequencer-panel__korg-stamp {
+  width: 100%;
+  margin: 0 0 0.65rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.82);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__korg-stamp:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__progressions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: -0.25rem 0 0.85rem;
+}
+
+.rhodes-sequencer-panel__progressions button {
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__progressions button.is-selected,
+.rhodes-sequencer-panel__progressions button:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__editor input {
+  width: 100%;
+  margin-bottom: 0.55rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  background: #000000;
+  font: inherit;
+  font-size: 10px;
+}
+
+.rhodes-sequencer-panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+}
+
+.rhodes-sequencer-panel__filters button {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__filters button.is-active,
+.rhodes-sequencer-panel__filters button:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__choices {
+  display: grid;
+  max-height: 230px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+  overflow-y: auto;
+}
+
+.rhodes-sequencer-panel__choices button,
+.rhodes-sequencer-panel__clear {
+  min-width: 0;
+  padding: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.78);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__mixer {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.rhodes-sequencer-panel__mixer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.rhodes-sequencer-panel__swing {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.7rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+}
+
+.rhodes-sequencer-panel__swing input {
+  width: 100%;
+  accent-color: #ffffff;
+}
+
+.rhodes-sequencer-panel__mixer label {
+  display: grid;
+  gap: 0.25rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+}
+
+.rhodes-sequencer-panel__mixer input {
+  width: 100%;
+  accent-color: #ffffff;
+}
+
+.rhodes-sequencer-panel__choices button:hover,
+.rhodes-sequencer-panel__clear:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.rhodes-sequencer-panel__stamp .rhodes-sequencer-panel__choices button.is-selected {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+.rhodes-sequencer-panel__clear {
+  width: 100%;
+  margin-top: 0.55rem;
+}
+
+.rhodes-sequencer-panel__export {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.82);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.rhodes-sequencer-panel__export:hover {
+  border-color: #ffffff;
+  color: #000000;
+  background: #ffffff;
+}
+
+@keyframes sequencer-edit-flash {
+  50% {
+    border-color: #ffffff;
+    background: #ffffff;
+    color: #000000;
+  }
+}
+
+@media (max-width: 900px) {
+  .rhodes-sequencer-panel {
+    right: 1rem;
+    bottom: 4.5rem;
+    width: calc(100vw - 2rem);
+  }
+}
+
 .trace-scroll-shell {
   position: relative;
   min-height: 100vh;

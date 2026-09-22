@@ -12,6 +12,8 @@ export function createMainTraceRenderer({
   drawAnimatedGhostStack,
   drawScrollCue,
   triggerAnchorReveal,
+  onStampLand = () => {},
+  onStampLeave = () => {},
   drawBetweenGhostsAndStamps,
 }) {
   const ghostIndexCache = new WeakMap();
@@ -126,9 +128,11 @@ export function createMainTraceRenderer({
         const targetProgress = Math.max(scrubProgress, centerProgress);
 
         if (targetProgress >= 1) {
+          if (!state.landedAnchors[index]) onStampLand(index);
           state.landedAnchors[index] = true;
           triggerAnchorReveal(index);
         } else {
+          if (state.landedAnchors[index]) onStampLeave(index);
           if (reveal.active) gsap.killTweensOf(reveal);
           reveal.active = false;
           state.landedAnchors[index] = false;

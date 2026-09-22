@@ -31,6 +31,7 @@ import { createTraceRuntimeController } from "./traceRuntimeController.js";
 import { createTraceLifecycleController } from "./traceLifecycleController.js";
 import { createPortalRuntimeController } from "./portalRuntimeController.js";
 import { createTraceCompositionController } from "./traceCompositionController.js";
+import { createRhodesChordEngine } from "./rhodesChordEngine.js";
 import {
   LETTERS,
   PLACEMENT_GRID_COLUMNS,
@@ -117,6 +118,9 @@ function FooterLineField() {
 
 export default function TraceDream() {
   const canvasRef = useRef(null);
+  const rhodesEngineRef = useRef(null);
+  const soundEnabledRef = useRef(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const bottomCanvasRef = useRef(null);
   const bottomGhostCanvasRef = useRef(null);
   const mediaBackCanvasRef = useRef(null);
@@ -152,7 +156,35 @@ export default function TraceDream() {
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     let cancelled = false;
+    let audioScrollStarted = false;
+    const startScrollAudio = () => {
+      if (audioScrollStarted || !soundEnabledRef.current) return;
+      audioScrollStarted = true;
+      rhodesChordEngine.startScrollGroove();
+    };
+    const stopScrollAudio = () => {
+      if (!audioScrollStarted) return;
+      audioScrollStarted = false;
+      rhodesChordEngine.stopScrollGroove();
+    };
+    const startAudioFromWheel = (event) => {
+      if (event.deltaY > 0) startScrollAudio();
+    };
+    window.addEventListener("wheel", startAudioFromWheel, { passive: true });
     const state = createTraceState();
+    const rhodesChordEngine = createRhodesChordEngine();
+    rhodesEngineRef.current = rhodesChordEngine;
+    const unlockRhodesAudio = (event) => {
+      const isSoundToggle = event?.target?.closest?.(".rhodes-audio-button");
+      if (!isSoundToggle && !soundEnabledRef.current) {
+        soundEnabledRef.current = true;
+        setSoundEnabled(true);
+      }
+      rhodesChordEngine.unlock();
+      if (event?.type === "wheel" && event.deltaY > 0) startScrollAudio();
+    };
+    const audioUnlockEvents = ["pointerdown", "touchstart", "wheel", "keydown"];
+    audioUnlockEvents.forEach((eventName) => window.addEventListener(eventName, unlockRhodesAudio, { passive: true }));
     const portalRuntimeController = createPortalRuntimeController({ state, gsap });
     const compositionController = createTraceCompositionController();
     const {
@@ -261,6 +293,13 @@ export default function TraceDream() {
       drawAnimatedGhostStack: glyphRenderer.drawAnimatedGhostStack,
       drawScrollCue: glyphRenderer.drawScrollCue,
       triggerAnchorReveal,
+      onStampLand: (index) => {
+        if (soundEnabledRef.current) rhodesChordEngine.playStampChord(index);
+        if (index === state.anchors.length - 1) rhodesChordEngine.enablePostStampKeys?.();
+      },
+      onStampLeave: () => {
+        rhodesChordEngine.disablePostStampKeys?.();
+      },
       drawBetweenGhostsAndStamps: () => {
         portalRenderer.draw();
         drawPlacementGrid();
@@ -475,7 +514,14 @@ export default function TraceDream() {
       traceScheduler,
       portalAssetController,
       syncPortalConfigExport,
-      onScroll,
+      onScroll: () => {
+        rhodesChordEngine.unlock();
+        if (soundEnabledRef.current) {
+          if (!audioScrollStarted) startScrollAudio();
+          else rhodesChordEngine.startScrollGroove();
+        }
+        onScroll();
+      },
       resize,
       traceViewport,
       portalInteraction,
@@ -499,6 +545,10 @@ export default function TraceDream() {
       bottomGhostRenderer.clearCache();
       diagonalGhostRenderer.clearCache();
       portalAssetController.dispose();
+      rhodesChordEngine.dispose();
+      rhodesEngineRef.current = null;
+      window.removeEventListener("wheel", startAudioFromWheel);
+      audioUnlockEvents.forEach((eventName) => window.removeEventListener(eventName, unlockRhodesAudio));
       noiseTexture.dispose();
       mediaBackRenderer.dispose();
       mediaFrontRenderer.dispose();
@@ -509,6 +559,26 @@ export default function TraceDream() {
 
   return (
     <section className="trace-stage">
+      <button
+        className="rhodes-audio-button"
+        type="button"
+        aria-label="Play Rhodes sound"
+        title="Play Rhodes sound"
+        onClick={async () => {
+          const engine = rhodesEngineRef.current;
+          if (engine) await engine.unlock();
+          const nextEnabled = !soundEnabledRef.current;
+          soundEnabledRef.current = nextEnabled;
+          setSoundEnabled(nextEnabled);
+          if (engine && nextEnabled) {
+            await engine.startScrollGroove();
+          } else if (engine) {
+            engine.stopScrollGroove();
+          }
+        }}
+      >
+        {soundEnabled ? "Sound on" : "Sound off"}
+      </button>
       <div className="trace-scroll-shell">
         <div className="trace-viewport">
           <canvas ref={mediaBackCanvasRef} className="trace-media-canvas trace-media-canvas--back" />

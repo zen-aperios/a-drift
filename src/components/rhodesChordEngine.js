@@ -348,6 +348,7 @@ export function createRhodesChordEngine() {
   let stampInstrument = DEFAULT_STAMP_INSTRUMENT;
   let stampInstrumentPattern = DEFAULT_STAMP_INSTRUMENT_PATTERN.slice();
   let postStampKeysEnabled = false;
+  let postStampCycleStartStep = 0;
   let bassPatternIndex = -1;
   const bassControls = {
     volume: 1,
@@ -961,7 +962,9 @@ export function createRhodesChordEngine() {
           if (postStampKeysEnabled
             && (patternStep === 0 || patternStep === halfPattern)
             && stampInstrumentPattern.length) {
-            const cycleIndex = Math.floor(grooveStep / halfPattern);
+            const cycleIndex = Math.floor(
+              Math.max(0, grooveStep - postStampCycleStartStep) / halfPattern
+            );
             const cycleInstrument = stampInstrumentPattern[cycleIndex % stampInstrumentPattern.length];
             const fullCycleIndex = Math.floor(grooveStep / sequencerPattern.length);
             const reverbSend = fullCycleIndex >= 1 ? 0.32 : 0;
@@ -989,6 +992,7 @@ export function createRhodesChordEngine() {
 
   function enablePostStampKeys() {
     postStampKeysEnabled = true;
+    postStampCycleStartStep = grooveStep;
   }
 
   function disablePostStampKeys() {

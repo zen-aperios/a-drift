@@ -1,5 +1,3 @@
-import { DOWNLOADED_SAMPLE_LIBRARY } from "./downloadedSampleLibrary.js";
-
 const CHORDS = [
   // P: Em9
   [40, 47, 50, 54, 59],
@@ -24,113 +22,16 @@ export const CHORD_PROGRESSION_OPTIONS = [
   ["Minor 9 / Maj 9", [0, 3, 0, 3, 0, 3]],
 ];
 
-export const RHODES_SOUND_CONTROLS = [
-  ["kick", "Kick"],
-  ["rim", "Rim"],
-  ["clap", "Clap"],
-  ["hat", "Closed hat"],
-  ["openHat", "Open hat"],
-  ["shaker", "Shaker"],
-  ["clave", "Clave"],
-  ["congaLow", "Low conga"],
-  ["congaOpen", "Open conga"],
-  ["bongoLow", "Low bongo"],
-  ["bongoHigh", "High bongo"],
-  ["cowbell", "Cowbell"],
-  ["agogo", "Agogo"],
-  ["tambourine", "Tambourine"],
-  ["timbale", "Timbale"],
-  ["triangle", "Triangle"],
-  ["bass", "Bass"],
-  ["stab", "Minor 9 stab"],
-  ["pad", "Maj9 pad"],
-  ["pluck", "Dub pluck"],
-  ["noise", "Air noise"],
-  ["synthChord", "E minor sample"],
-];
-
-export const PERCUSSION_LIBRARY = [
-  ["libraryBongos1", "Bongos 01", "/audio/percussion/library/bongos-lpsp_bongos_001.wav"],
-  ["libraryBongos2", "Bongos 02", "/audio/percussion/library/bongos-lpsp_bongos_002.wav"],
-  ["libraryCongas1", "Congas 01", "/audio/percussion/library/congas-lpsp_conga_001.wav"],
-  ["libraryCongas2", "Congas 02", "/audio/percussion/library/congas-lpsp_conga_002.wav"],
-  ["libraryClaves1", "Claves 01", "/audio/percussion/library/claves-lpsp_claves_01.wav"],
-  ["libraryClaves2", "Claves 02", "/audio/percussion/library/claves-lpsp_claves_02.wav"],
-  ["libraryCowbells1", "Cowbells 01", "/audio/percussion/library/cowbells-lpsp_cowbells_01.wav"],
-  ["libraryCowbells2", "Cowbells 02", "/audio/percussion/library/cowbells-lpsp_cowbells_02.wav"],
-  ["libraryOpenHats1", "Open hats 01", "/audio/percussion/library/open_hats-lpsp_open_hats_01.wav"],
-  ["libraryOpenHats2", "Open hats 02", "/audio/percussion/library/open_hats-lpsp_open_hats_02.wav"],
-  ["libraryRimshots1", "Rimshots 01", "/audio/percussion/library/rimshots-lpsp_rimshot_01.wav"],
-  ["libraryRimshots2", "Rimshots 02", "/audio/percussion/library/rimshots-lpsp_rimshot_02.wav"],
-  ["libraryShakers1", "Shakers 01", "/audio/percussion/library/shakers-lpsp_shakers_01.wav"],
-  ["libraryShakers2", "Shakers 02", "/audio/percussion/library/shakers-lpsp_shakers_02.wav"],
-  ["libraryTambourines1", "Tambourines 01", "/audio/percussion/library/tambourines-lpsp_tambourines_001.wav"],
-  ["libraryTambourines2", "Tambourines 02", "/audio/percussion/library/tambourines-lpsp_tambourines_002.wav"],
-  ["libraryTimbales1", "Timbales 01", "/audio/percussion/library/timbales-lpsp_timbales_01.wav"],
-  ["libraryTimbales2", "Timbales 02", "/audio/percussion/library/timbales-lpsp_timbales_02.wav"],
-  ["libraryTriangles1", "Triangles 01", "/audio/percussion/library/triangles-lpsp_triangles_01.wav"],
-  ["libraryTriangles2", "Triangles 02", "/audio/percussion/library/triangles-lpsp_triangles_02.wav"],
-  ["libraryMaracas1", "Maracas 01", "/audio/percussion/library/maracas-lpsp_maracas_01.wav"],
-  ["libraryMaracas2", "Maracas 02", "/audio/percussion/library/maracas-lpsp_maracas_02.wav"],
-  ["libraryCabasas1", "Cabasas 01", "/audio/percussion/library/cabasas-lpsp_cabasas_01.wav"],
-  ["libraryCabasas2", "Cabasas 02", "/audio/percussion/library/cabasas-lpsp_cabasas_02.wav"],
-  ["libraryGuiros1", "Guiros 01", "/audio/percussion/library/guiros-lpsp_guiros_01.wav"],
-  ["libraryGuiros2", "Guiros 02", "/audio/percussion/library/guiros-lpsp_guiros_02.wav"],
-  ["libraryWoodblocks1", "Woodblocks 01", "/audio/percussion/library/woodblocks-lpsp_woodblocks_01.wav"],
-  ["libraryWoodblocks2", "Woodblocks 02", "/audio/percussion/library/woodblocks-lpsp_woodblocks_02.wav"],
-  ["libraryCastanets1", "Castanets 01", "/audio/percussion/library/castanets-lpsp_castanets_1.wav"],
-  ["libraryCastanets2", "Castanets 02", "/audio/percussion/library/castanets-lpsp_castanets_2.wav"],
-  ["libraryChimes1", "Chimes 01", "/audio/percussion/library/chimes-lpsp_chimes_1.wav"],
-  ["libraryChimes2", "Chimes 02", "/audio/percussion/library/chimes-lpsp_chimes_2.wav"],
-  ["libraryTaikos1", "Taikos 01", "/audio/percussion/library/taikos-lpsp_taikos_01.wav"],
-  ["libraryTaikos2", "Taikos 02", "/audio/percussion/library/taikos-lpsp_taikos_02.wav"],
-  ["libraryBamboos1", "Bamboos 01", "/audio/percussion/library/bamboos-lpsp_bamboo_01.wav"],
-  ["libraryBamboos2", "Bamboos 02", "/audio/percussion/library/bamboos-lpsp_bamboo_02.wav"],
-  ["libraryCoolPercs1", "Cool percs 01", "/audio/percussion/library/cool_percs-lpsp_cool_percs_001.wav"],
-  ["libraryCoolPercs2", "Cool percs 02", "/audio/percussion/library/cool_percs-lpsp_cool_percs_002.wav"],
-  ["librarySticks1", "Sticks 01", "/audio/percussion/library/sticks-lpsp_sticks_1.wav"],
-  ["librarySticks2", "Sticks 02", "/audio/percussion/library/sticks-lpsp_sticks_2.wav"],
-];
-
-export const SEQUENCER_INSTRUMENTS = [
-  ["kick", "Kick"],
-  ["hat", "Closed hat"],
-  ["clap", "Clap"],
-  ["bongoLow", "Low bongo"],
-  ["bongoHigh", "High bongo"],
-  ...RHODES_SOUND_CONTROLS.filter(([id]) => !["kick", "hat", "clap", "synthChord"].includes(id)),
-  ...PERCUSSION_LIBRARY.map(([id, label]) => [id, label]),
-  ...DOWNLOADED_SAMPLE_LIBRARY.map(([id, label]) => [id, label]),
-];
-
-const firstDownloadedSample = (category, fallback) =>
-  DOWNLOADED_SAMPLE_LIBRARY.find(([, , , sampleCategory]) => sampleCategory === category)?.[0] || fallback;
-
-const downloadedSampleMatching = (category, matcher, fallback) =>
-  DOWNLOADED_SAMPLE_LIBRARY.find(([id, label, , sampleCategory]) =>
-    sampleCategory === category && matcher.test(`${id} ${label}`))?.[0] || fallback;
-
-const deepHouse808 = firstDownloadedSample("808", "kick");
-const deepHouseKorg = downloadedSampleMatching("Korg", /chord|organ|piano|pad|tone/i, firstDownloadedSample("Korg", "synthChord"));
-const deepHouseKorgAlt = DOWNLOADED_SAMPLE_LIBRARY.find(([id, label, , category]) =>
-  category === "Korg" && id !== deepHouseKorg && /synth|lead|bell|tone/i.test(label)
-)?.[0] || deepHouseKorg;
-const korgSoftChordFMinor = downloadedSampleMatching("Korg", /synth shot soft chord f minor$/i, deepHouseKorg);
-const korgSoftChordHighFMinor = downloadedSampleMatching("Korg", /synth shot soft chord high f minor$/i, deepHouseKorgAlt);
+const korgSoftChordFMinor = "korgSoftChordFMinor";
+const korgSoftChordHighFMinor = "korgSoftChordHighFMinor";
 const DEFAULT_STAMP_INSTRUMENT = korgSoftChordFMinor;
 const DEFAULT_STAMP_INSTRUMENT_PATTERN = [korgSoftChordFMinor, korgSoftChordHighFMinor];
-
-function createPattern() {
-  return Array.from({ length: 64 }, () => null);
-}
 
 function putPatternLayer(pattern, step, instrument, options = {}) {
   const current = pattern[step] ? (Array.isArray(pattern[step]) ? pattern[step].slice() : [pattern[step]]) : [];
   current.push({ instrument, ...options });
   pattern[step] = current;
 }
-
-const DEEP_HOUSE_BASS_RHYTHM = [1, 3, 6, 8, 11];
 
 const BASS_PATTERN_SHAPES = [
   [1, 3, 6, 8, 11],
@@ -214,38 +115,6 @@ export const BASS_SOUND_STYLES = [
   ["Night drive", { waveform: "sawtooth", bodyWaveform: "sine", attack: 0.01, resonance: 3.8, subMix: 0.16 }],
 ];
 
-function makeDeepHousePattern(style = "classic") {
-  const pattern = createPattern();
-  for (let step = 0; step < 64; step += 4) putPatternLayer(pattern, step, "kick");
-  for (let step = 2; step < 64; step += 4) putPatternLayer(pattern, step, "hat");
-  for (let step = 4; step < 64; step += 8) putPatternLayer(pattern, step, "clap");
-  for (let bar = 0; bar < 64; bar += 16) {
-    DEEP_HOUSE_BASS_RHYTHM.forEach((offset) => putPatternLayer(pattern, bar + offset, "bass"));
-  }
-  for (let step = 7; step < 64; step += 16) putPatternLayer(pattern, step, "bongoLow", { rate: 0.92 });
-  for (let step = 15; step < 64; step += 16) putPatternLayer(pattern, step, "bongoHigh", { rate: 1.08 });
-
-  if (style === "late") {
-    [12, 28, 44, 60].forEach((step) => putPatternLayer(pattern, step, deepHouseKorg, { gainLevel: 0.2, rate: 0.98 }));
-    [14, 30, 46, 62].forEach((step) => putPatternLayer(pattern, step, deepHouseKorgAlt, { gainLevel: 0.14, rate: 1.12 }));
-    [6, 22, 38, 54].forEach((step) => putPatternLayer(pattern, step, deepHouse808, { gainLevel: 0.22, rate: 0.5 }));
-  } else if (style === "swing") {
-    [3, 11, 19, 27, 35, 43, 51, 59].forEach((step) => putPatternLayer(pattern, step, "shaker"));
-    [10, 26, 42, 58].forEach((step) => putPatternLayer(pattern, step, deepHouseKorg, { gainLevel: 0.18, rate: 1.06 }));
-    [14, 30, 46, 62].forEach((step) => putPatternLayer(pattern, step, deepHouseKorgAlt, { gainLevel: 0.13, rate: 0.94 }));
-  } else {
-    [8, 24, 40, 56].forEach((step) => putPatternLayer(pattern, step, deepHouseKorg, { gainLevel: 0.18, rate: 1 }));
-    [12, 28, 44, 60].forEach((step) => putPatternLayer(pattern, step, deepHouseKorgAlt, { gainLevel: 0.14, rate: 1.12 }));
-  }
-  return pattern;
-}
-
-export const SEQUENCER_PRESETS = [
-  ["Deep house", makeDeepHousePattern("classic")],
-  ["Late night", makeDeepHousePattern("late")],
-  ["Loose swing", makeDeepHousePattern("swing")],
-];
-
 const DEFAULT_SEQUENCER_PATTERN = Array.from({ length: 64 }, () => null);
 for (let step = 0; step < DEFAULT_SEQUENCER_PATTERN.length; step += 4) {
   DEFAULT_SEQUENCER_PATTERN[step] = { instrument: "kick" };
@@ -265,22 +134,10 @@ LARRY_HEARD_BASS_PATTERNS[0].steps.forEach((isActive, step) => {
 });
 
 const SAMPLE_URLS = {
-  rim: "/audio/percussion/rim.wav",
-  openHat: "/audio/percussion/open-hat.wav",
-  shaker: "/audio/percussion/shaker.wav",
-  clave: "/audio/percussion/clave.wav",
-  congaLow: "/audio/percussion/conga-low.wav",
-  congaOpen: "/audio/percussion/conga-open.wav",
   bongoLow: "/audio/percussion/bongo-low.wav",
   bongoHigh: "/audio/percussion/bongo-high.wav",
-  cowbell: "/audio/percussion/cowbell.wav",
-  agogo: "/audio/percussion/agogo.wav",
-  tambourine: "/audio/percussion/tambourine.wav",
-  timbale: "/audio/percussion/timbale.wav",
-  triangle: "/audio/percussion/triangle.wav",
-  synthChord: "/audio/synth-chord-memories.wav",
-  ...Object.fromEntries(PERCUSSION_LIBRARY.map(([id, , url]) => [id, url])),
-  ...Object.fromEntries(DOWNLOADED_SAMPLE_LIBRARY.map(([id, , url]) => [id, url])),
+  korgSoftChordFMinor: new URL("../audio/korg/korg-synth-fx-down-sweep-2/korg-fx-down-sweep-synth-shot-soft-chord_F_minor.wav", import.meta.url).href,
+  korgSoftChordHighFMinor: new URL("../audio/korg/korg-synth-fx-down-sweep-2/korg-fx-down-sweep-synth-shot-soft-chord-high_F_minor.wav", import.meta.url).href,
 };
 
 // Match sample-based stamp sounds to the root of each chord in the same bank.
@@ -801,7 +658,7 @@ export function createRhodesChordEngine() {
   }
 
   function setStampInstrument(instrument) {
-    if (!instrument || !SEQUENCER_INSTRUMENTS.some(([id]) => id === instrument)) return;
+    if (!instrument || !SAMPLE_URLS[instrument]) return;
     stampInstrument = instrument;
     stampInstrumentPattern = [instrument];
     stampListeners.forEach((listener) => listener(stampInstrument));

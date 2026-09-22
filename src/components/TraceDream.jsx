@@ -175,11 +175,6 @@ export default function TraceDream() {
     const rhodesChordEngine = createRhodesChordEngine();
     rhodesEngineRef.current = rhodesChordEngine;
     const unlockRhodesAudio = (event) => {
-      const isSoundToggle = event?.target?.closest?.(".rhodes-audio-button");
-      if (!isSoundToggle && !soundEnabledRef.current) {
-        soundEnabledRef.current = true;
-        setSoundEnabled(true);
-      }
       rhodesChordEngine.unlock();
       if (event?.type === "wheel" && event.deltaY > 0) startScrollAudio();
     };
@@ -571,7 +566,7 @@ export default function TraceDream() {
           soundEnabledRef.current = nextEnabled;
           setSoundEnabled(nextEnabled);
           if (engine && nextEnabled) {
-            await engine.startScrollGroove();
+            // The button arms audio; the next scroll is the playback trigger.
           } else if (engine) {
             engine.stopScrollGroove();
           }

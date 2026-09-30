@@ -71,7 +71,11 @@ export function createLayoutController({
       for (let i = 0; i < ghostTotal; i += 1) {
         const t = ghostTotal === 1 ? 0 : i / (ghostTotal - 1);
         const point = segment.points[Math.round(t * (segment.points.length - 1))];
-        ghosts.push(createStamp(point.x, point.y, t >= 0.5 ? segment.toLetter : segment.fromLetter, false));
+        const ghost = createStamp(point.x, point.y, t >= 0.5 ? segment.toLetter : segment.fromLetter, false);
+        const fromScale = state.anchors[segment.fromIndex]?.scale ?? 1;
+        const toScale = state.anchors[segment.toIndex]?.scale ?? 1;
+        ghost.scale = lerp(fromScale, toScale, t);
+        ghosts.push(ghost);
       }
       return { ...segment, ghosts };
     });

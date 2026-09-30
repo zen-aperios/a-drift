@@ -47,6 +47,7 @@ export function createTraceState() {
       end: { x: 0.9, y: 0.45258333333333334 },
     },
     bottomVideo: null,
+    bottomVideoCenterOffset: 0,
     bottomGhostCanvasTop: 0,
     bottomGhostCanvasHeight: 0,
     bottomSectionStart: 0,

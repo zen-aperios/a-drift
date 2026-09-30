@@ -88,7 +88,7 @@ function makeNamedBassPattern(name, offsets, pitches = []) {
 
 // Original patterns using classic Larry Heard-inspired deep-house space and syncopation.
 export const LARRY_HEARD_BASS_PATTERNS = [
-  makeNamedBassPattern("Can You Feel It inspired", [0, 3, 6, 8, 11, 14], [0, 0, 7, 5, 3, 5]),
+  makeNamedBassPattern("Can You Feel It inspired", [0, 3, 6, 8, 11, 14], [0, 0, 7, 0, 0, 0]),
   makeNamedBassPattern("Mystery of Love inspired", [1, 4, 7, 10, 12], [0, 3, 5, 7, 5]),
   makeNamedBassPattern("Washing Machine inspired", [0, 2, 6, 9, 11, 14], [0, 0, 3, 5, 3, 7]),
   makeNamedBassPattern("Another Night inspired", [1, 3, 6, 8, 12, 15], [0, 3, 5, 3, 7, 5]),
@@ -116,6 +116,25 @@ export const BASS_SOUND_STYLES = [
 ];
 
 const DEFAULT_SEQUENCER_PATTERN = Array.from({ length: 64 }, () => null);
+const PERCUSSION_INSTRUMENTS = new Set(["kick", "hat", "clap", "bongoLow", "bongoHigh"]);
+const BASIC_RIM_SHOT_STEPS = [6, 13, 20, 51, 60];
+const AUTO_RIM_SHOT_STEPS = [4, 6, 10, 12, 13, 18, 20, 26, 27, 29, 36, 38, 43, 44, 46, 51, 52, 59, 60, 62];
+
+function isPercussionInstrument(instrument) {
+  return PERCUSSION_INSTRUMENTS.has(instrument)
+    || instrument?.startsWith("727:")
+    || instrument?.startsWith("808:")
+    || instrument?.startsWith("909:");
+}
+
+function isBassInstrument(instrument) {
+  return instrument === "bass" || instrument?.startsWith("bass:");
+}
+
+function isStampTrack(instrument) {
+  return instrument?.startsWith("stamp:");
+}
+
 for (let step = 0; step < DEFAULT_SEQUENCER_PATTERN.length; step += 4) {
   DEFAULT_SEQUENCER_PATTERN[step] = { instrument: "kick" };
 }
@@ -125,6 +144,20 @@ for (let step = 2; step < DEFAULT_SEQUENCER_PATTERN.length; step += 4) {
 DEFAULT_SEQUENCER_PATTERN[61] = null;
 DEFAULT_SEQUENCER_PATTERN[62] = null;
 DEFAULT_SEQUENCER_PATTERN[63] = { instrument: "bongoLow", rate: 1.48, gainLevel: 0.102 };
+[
+  ["808:Tom_Low_B_808_11", [6, 14, 22, 30, 38, 46, 54, 62]],
+  ["727:Conga_Lo_727_18", [60]],
+  ["727:Conga_Hi_Open_727_18", [7, 15, 23, 31, 39, 47, 55, 63]],
+  ["727:Conga_Hi_Mute_727_18", [11, 27, 43, 59]],
+].forEach(([instrument, steps]) => {
+  steps.forEach((step) => putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, instrument));
+});
+BASIC_RIM_SHOT_STEPS.forEach((step) => {
+  putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "808:Rim_Shot_A_808", { startupOnly: true });
+});
+AUTO_RIM_SHOT_STEPS.forEach((step) => {
+  putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "808:Rim_Shot_A_808", { autoOnly: true });
+});
 LARRY_HEARD_BASS_PATTERNS[0].steps.forEach((isActive, step) => {
   if (isActive) {
     putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "bass", {
@@ -133,12 +166,79 @@ LARRY_HEARD_BASS_PATTERNS[0].steps.forEach((isActive, step) => {
   }
 });
 
+// Keep the bass phrase identical on every visible 16-step page so its groove
+// stays consistent while the other sequencer tracks continue to vary.
+const firstBassPage = Array.from({ length: 16 }, (_, step) => (
+  eventLayers(DEFAULT_SEQUENCER_PATTERN[step])
+    .filter((layer) => isBassInstrument(layer.instrument))
+    .map((layer) => ({ ...layer }))
+));
+for (let page = 1; page < 4; page += 1) {
+  for (let step = 0; step < 16; step += 1) {
+    const targetStep = page * 16 + step;
+    const otherLayers = eventLayers(DEFAULT_SEQUENCER_PATTERN[targetStep])
+      .filter((layer) => !isBassInstrument(layer.instrument));
+    const bassLayers = firstBassPage[step].map((layer) => ({ ...layer }));
+    DEFAULT_SEQUENCER_PATTERN[targetStep] = [...otherLayers, ...bassLayers];
+  }
+}
+
+// Startup arrangement: preserve the existing instruments and use the basic
+// rim phrase until the post-stamp auto section takes over.
+DEFAULT_SEQUENCER_PATTERN.fill(null);
+for (let step = 0; step < 64; step += 4) putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "kick");
+for (let step = 2; step < 64; step += 4) putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "hat");
+[
+  ["727:Conga_Lo_727_18", [60]],
+  ["808:Tom_Low_B_808_11", [6, 14, 22, 30, 38, 46, 54, 62]],
+  ["727:Conga_Hi_Mute_727_18", [11, 27, 43, 59]],
+  ["727:Conga_Hi_Open_727_18", [47, 63]],
+].forEach(([instrument, steps]) => {
+  steps.forEach((step) => putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, instrument));
+});
+BASIC_RIM_SHOT_STEPS.forEach((step) => {
+  putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "808:Rim_Shot_A_808", { startupOnly: true });
+});
+AUTO_RIM_SHOT_STEPS.forEach((step) => {
+  putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "808:Rim_Shot_A_808", { autoOnly: true });
+});
+[
+  [0, 0], [3, 0], [6, 7], [8, 0], [11, 0], [14, 0],
+  [16, 0], [19, 0], [22, 7], [24, 0], [27, 0], [30, 0],
+  [32, 0], [35, 0], [38, 7], [40, 0], [43, 0], [46, 0],
+  [48, 0], [51, 0], [54, 7], [56, 0], [59, 0], [62, 0],
+].forEach(([step, pitch]) => putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "bass", { pitch }));
+putPatternLayer(DEFAULT_SEQUENCER_PATTERN, 63, "bongoLow", { rate: 1.48, gainLevel: 0.102 });
+[0, 16, 32, 48].forEach((step) => putPatternLayer(DEFAULT_SEQUENCER_PATTERN, step, "stamp:korg", { muted: true }));
+
 const SAMPLE_URLS = {
   bongoLow: "/audio/percussion/bongo-low.wav",
   bongoHigh: "/audio/percussion/bongo-high.wav",
   korgSoftChordFMinor: new URL("../audio/korg/korg-synth-fx-down-sweep-2/korg-fx-down-sweep-synth-shot-soft-chord_F_minor.wav", import.meta.url).href,
   korgSoftChordHighFMinor: new URL("../audio/korg/korg-synth-fx-down-sweep-2/korg-fx-down-sweep-synth-shot-soft-chord-high_F_minor.wav", import.meta.url).href,
 };
+
+const LIBRARY_727_URLS = import.meta.glob("../../727/*.wav", {
+  eager: true,
+  import: "default",
+  query: "?url",
+});
+const LIBRARY_808_URLS = import.meta.glob("../../808/*.wav", {
+  eager: true,
+  import: "default",
+  query: "?url",
+});
+
+function librarySampleUrls(library, prefix) {
+  return Object.fromEntries(Object.entries(library).map(([path, url]) => {
+    const filename = path.split("/").pop().replace(/\.wav$/i, "");
+    return [`${prefix}:${filename}`, url];
+  }));
+}
+
+Object.assign(SAMPLE_URLS, librarySampleUrls(LIBRARY_727_URLS, "727"));
+Object.assign(SAMPLE_URLS, librarySampleUrls(LIBRARY_808_URLS, "808"));
+const LIBRARY_SAMPLE_IDS = Object.keys(SAMPLE_URLS).filter((id) => id.includes(":"));
 
 // Match sample-based stamp sounds to the root of each chord in the same bank.
 const STAMP_CHORD_RATES = CHORDS.map((chord) => 2 ** ((chord[0] - CHORDS[0][0]) / 12));
@@ -189,6 +289,7 @@ export function createRhodesChordEngine() {
   let grooveTimer = null;
   let grooveRunning = false;
   let grooveStartPromise = null;
+  let grooveRequestId = 0;
   let nextGrooveTime = 0;
   let grooveStep = 0;
   const grooveStepDuration = 60 / 120 / 4;
@@ -200,6 +301,17 @@ export function createRhodesChordEngine() {
   const sequencerListeners = new Set();
   const sequencerVolumeListeners = new Set();
   const sequencerVolumes = new Map();
+  const sequencerEffects = new Map();
+  const sequencerReverbBuses = new Map();
+  const startupTrackLevels = {
+    "808:Tom_Low_B_808_11": 0.81,
+    "808:Rim_Shot_A_808": 0.51,
+    "727:Conga_Lo_727_18": 0.34,
+    "727:Conga_Hi_Open_727_18": 0.39,
+    "727:Conga_Hi_Mute_727_18": 0.34,
+  };
+  Object.entries(startupTrackLevels).forEach(([instrument, volume]) => sequencerVolumes.set(instrument, volume));
+  sequencerEffects.set("808:Rim_Shot_A_808", { reverb: 0.59, reverbDecay: 0.65 });
   const sequencerSwingListeners = new Set();
   let sequencerSwing = 0.18;
   let stampInstrument = DEFAULT_STAMP_INSTRUMENT;
@@ -227,10 +339,9 @@ export function createRhodesChordEngine() {
   const bassPatternListeners = new Set();
   const bassControlListeners = new Set();
 
-  function setBassReverbImpulse() {
-    if (!audioContext || !bassReverbInput) return;
-    const length = Math.max(1, Math.floor(audioContext.sampleRate * bassControls.reverbDecay));
-    const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
+  function createReverbImpulse(context, decay) {
+    const length = Math.max(1, Math.floor(context.sampleRate * decay));
+    const impulse = context.createBuffer(2, length, context.sampleRate);
     for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
       const data = impulse.getChannelData(channel);
       for (let index = 0; index < length; index += 1) {
@@ -238,7 +349,65 @@ export function createRhodesChordEngine() {
         data[index] = (Math.random() * 2 - 1) * fade * fade;
       }
     }
-    bassReverbInput.buffer = impulse;
+    return impulse;
+  }
+
+  function setBassReverbImpulse() {
+    if (!audioContext || !bassReverbInput) return;
+    bassReverbInput.buffer = createReverbImpulse(audioContext, bassControls.reverbDecay);
+  }
+
+  function getSequencerEffect(instrument) {
+    if (!instrument) return { reverb: 0, reverbDecay: 0 };
+    if (!sequencerEffects.has(instrument)) {
+      sequencerEffects.set(instrument, {
+        reverb: 0,
+        reverbDecay: 0,
+      });
+    }
+    return { ...sequencerEffects.get(instrument) };
+  }
+
+  function getSequencerReverbBus(instrument) {
+    if (!audioContext || !instrument) return null;
+    if (!sequencerReverbBuses.has(instrument)) {
+      const input = audioContext.createConvolver();
+      const gain = audioContext.createGain();
+      const effect = getSequencerEffect(instrument);
+      input.buffer = createReverbImpulse(audioContext, effect.reverbDecay);
+      gain.gain.value = effect.reverb;
+      input.connect(gain);
+      gain.connect(masterGain);
+      sequencerReverbBuses.set(instrument, { input, gain });
+    }
+    return sequencerReverbBuses.get(instrument);
+  }
+
+  function connectReverb(sourceGain, context, reverbSend, reverbInput) {
+    if (!reverbInput || reverbSend <= 0) return;
+    const reverbGain = context.createGain();
+    reverbGain.gain.value = reverbSend;
+    sourceGain.connect(reverbGain);
+    reverbGain.connect(reverbInput);
+  }
+
+  function setSequencerEffect(instrument, name, value) {
+    if (!instrument) return;
+    const current = getSequencerEffect(instrument);
+    const ranges = { reverb: [0, 0.6], reverbDecay: [0, 4] };
+    if (!ranges[name]) return;
+    const [min, max] = ranges[name];
+    current[name] = Math.max(min, Math.min(max, Number(value)));
+    sequencerEffects.set(instrument, current);
+    const bus = sequencerReverbBuses.get(instrument);
+    if (bus) {
+      if (name === "reverb") bus.gain.gain.value = current.reverb;
+      if (name === "reverbDecay") bus.input.buffer = createReverbImpulse(audioContext, current.reverbDecay);
+    }
+  }
+
+  function getSequencerEffects() {
+    return Object.fromEntries([...sequencerEffects.entries()].map(([instrument]) => [instrument, getSequencerEffect(instrument)]));
   }
 
   function getContext() {
@@ -331,7 +500,7 @@ export function createRhodesChordEngine() {
     return gain;
   }
 
-  function playNoiseHit(context, time, frequency, decay, level, volume = 1) {
+  function playNoiseHit(context, time, frequency, decay, level, volume = 1, reverbInput = bassReverbInput, reverbSend = 0.32) {
     const source = context.createBufferSource();
     const filter = context.createBiquadFilter();
     const gain = envelope(context, time, level * volume, 0.002, decay);
@@ -341,6 +510,7 @@ export function createRhodesChordEngine() {
     filter.Q.value = 6;
     source.connect(filter);
     filter.connect(gain);
+    connectReverb(gain, context, reverbSend, reverbInput);
     source.start(time);
     source.stop(time + decay + 0.04);
   }
@@ -360,13 +530,14 @@ export function createRhodesChordEngine() {
     oscillator.stop(time + decay + 0.03);
   }
 
-  function playKick(context, time, volume = 1) {
+  function playKick(context, time, volume = 1, reverbSend = 0, reverbInput = bassReverbInput) {
     const gain = envelope(context, time, 0.46 * volume, 0.004, 0.42);
     const oscillator = context.createOscillator();
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(132, time);
     oscillator.frequency.exponentialRampToValueAtTime(43, time + 0.18);
     oscillator.connect(gain);
+    connectReverb(gain, context, reverbSend, reverbInput);
     oscillator.start(time);
     oscillator.stop(time + 0.46);
   }
@@ -391,7 +562,7 @@ export function createRhodesChordEngine() {
 
   async function playSample(
     id,
-    { time = null, rate = 1, gainLevel = null, reverbSend = 0 } = {}
+    { time = null, rate = 1, gainLevel = null, reverbSend = 0, reverbInput = bassReverbInput } = {}
   ) {
     const context = getContext();
     if (!context || disposed) return;
@@ -409,12 +580,7 @@ export function createRhodesChordEngine() {
     gain.gain.value = level;
     source.connect(gain);
     gain.connect(masterGain);
-    if (reverbSend > 0 && bassReverbInput) {
-      const reverbGain = context.createGain();
-      reverbGain.gain.value = reverbSend;
-      gain.connect(reverbGain);
-      reverbGain.connect(bassReverbInput);
-    }
+    connectReverb(gain, context, reverbSend, reverbInput);
     const startTime = Math.max(time ?? 0, context.currentTime + 0.01);
     source.start(startTime);
   }
@@ -467,7 +633,14 @@ export function createRhodesChordEngine() {
 
   function playSequencerSound(context, event, time, step) {
     eventLayers(event).forEach((layer) => {
-      const volume = sequencerVolumes.get(layer.instrument) ?? 1;
+      if (layer.muted) return;
+      if (layer.startupOnly && postStampKeysEnabled) return;
+      if (layer.autoOnly && !postStampKeysEnabled) return;
+      const volume = getSequencerVolume(layer.instrument);
+      const notePitch = Number(layer.pitchOffset) || 0;
+      const sequencerEffect = getSequencerEffect(layer.instrument);
+      const sequencerReverbBus = getSequencerReverbBus(layer.instrument);
+      const sequencerReverbSend = sequencerEffect.reverb * 0.32;
       const isPercussive = layer.instrument !== "kick"
         && layer.instrument !== "hat"
         && layer.instrument !== "clap"
@@ -479,33 +652,68 @@ export function createRhodesChordEngine() {
       const grooveTime = isPercussive && groovePhase === 3
         ? time - grooveStepDuration * sequencerSwing * 0.06
         : time;
+      if (isStampTrack(layer.instrument)) {
+        const stampVariant = layer.instrument.slice("stamp:".length);
+        if (stampVariant === "korg") {
+          const stampSound = stampInstrumentPattern[Math.floor(step / 16) % stampInstrumentPattern.length] || stampInstrument;
+          playStampInstrument(1, stampSound, time, sequencerReverbSend);
+        } else {
+          playChord(Math.floor(step / 16), {
+            variant: stampVariant === "stamp" ? "classic" : stampVariant.replace("rhodes", "").toLowerCase(),
+            time,
+            duration: 3.6,
+            volume,
+            reverbInput: sequencerReverbBus?.input,
+            reverbSend: sequencerReverbSend,
+          });
+        }
+        return;
+      }
       if (layer.instrument === "kick") {
-        playKick(context, time, volume);
+        playKick(context, time, volume, sequencerReverbSend, sequencerReverbBus?.input);
         return;
       }
       if (layer.instrument === "hat") {
-        playNoiseHit(context, grooveTime + 0.008, 8200, 0.055, 0.06, volume * grooveAccent);
+        playNoiseHit(context, grooveTime + 0.008, 8200, 0.055, 0.06, volume * grooveAccent, sequencerReverbBus?.input, sequencerReverbSend);
         return;
       }
       if (layer.instrument === "clap") {
-        playNoiseHit(context, grooveTime + 0.01, 2200, 0.12, 0.1, volume * grooveAccent);
+        playNoiseHit(context, grooveTime + 0.01, 2200, 0.12, 0.1, volume * grooveAccent, sequencerReverbBus?.input, sequencerReverbSend);
         return;
       }
-      if (layer.instrument === "bass") {
-        playBassNote(step % BASS_ROOTS.length, grooveTime, volume * grooveAccent, layer.pitch || 0);
+      if (isBassInstrument(layer.instrument)) {
+        playBassNote(
+          step % BASS_ROOTS.length,
+          grooveTime,
+          volume * grooveAccent,
+          (layer.pitch || 0) + notePitch,
+          sequencerReverbBus?.input,
+          sequencerReverbSend,
+        );
         return;
       }
       playSample(layer.instrument, {
         time: grooveTime + (layer.instrument === "bongoLow" ? 0.01 : 0),
-        rate: layer.rate || 1,
-        gainLevel: (layer.gainLevel || (layer.instrument === "bongoLow" ? 0.34 : 0.28)) * volume * grooveAccent,
+        rate: (layer.rate || 1) * (2 ** (notePitch / 12)),
+        gainLevel: (isPercussionInstrument(layer.instrument) && (layer.instrument === "bongoLow" || layer.instrument === "bongoHigh")
+          ? 0.34
+          : (layer.gainLevel || 0.28)) * volume * grooveAccent,
+        reverbSend: sequencerReverbSend,
+        reverbInput: sequencerReverbBus?.input,
       });
     });
     void step;
   }
 
   function notifySequencer(step, event) {
-    sequencerListeners.forEach((listener) => listener(step, event));
+    const visibleLayers = eventLayers(event).filter((layer) => (
+      (!layer.startupOnly || !postStampKeysEnabled)
+      && (!layer.autoOnly || postStampKeysEnabled)
+    ));
+    const visibleEvent = visibleLayers.length === 1
+      ? { ...visibleLayers[0] }
+      : visibleLayers.length ? visibleLayers.map((layer) => ({ ...layer })) : null;
+    sequencerListeners.forEach((listener) => listener(step, visibleEvent));
   }
 
   function setSequencerStep(step, instrument, layerIndex = 0) {
@@ -518,6 +726,86 @@ export function createRhodesChordEngine() {
     }
     sequencerPattern[normalizedStep] = layers.length ? layers : null;
     notifySequencer(normalizedStep, sequencerPattern[normalizedStep]);
+  }
+
+  function toggleSequencerInstrument(step, instrument) {
+    if (!instrument) return;
+    const normalizedStep = ((step % 64) + 64) % 64;
+    const layers = eventLayers(sequencerPattern[normalizedStep]).map((layer) => ({ ...layer }));
+    const existingIndex = layers.findIndex((layer) => layer.instrument === instrument);
+    if (existingIndex >= 0) layers.splice(existingIndex, 1);
+    else layers.push({ instrument });
+    sequencerPattern[normalizedStep] = layers.length ? layers : null;
+    notifySequencer(normalizedStep, sequencerPattern[normalizedStep]);
+  }
+
+  function setSequencerStepPitch(step, instrument, direction) {
+    if (!instrument) return 0;
+    const normalizedStep = ((step % 64) + 64) % 64;
+    const layers = eventLayers(sequencerPattern[normalizedStep]).map((layer) => ({ ...layer }));
+    const layer = layers.find((item) => item.instrument === instrument);
+    if (!layer) return 0;
+    const current = Number(layer.pitchOffset) || 0;
+    layer.pitchOffset = Math.max(-12, Math.min(12, current + (direction < 0 ? -1 : 1)));
+    sequencerPattern[normalizedStep] = layers.length === 1 ? layers[0] : layers;
+    notifySequencer(normalizedStep, sequencerPattern[normalizedStep]);
+    return layer.pitchOffset;
+  }
+
+  function getSequencerStepPitch(step, instrument) {
+    const normalizedStep = ((step % 64) + 64) % 64;
+    const layer = eventLayers(sequencerPattern[normalizedStep]).find((item) => item.instrument === instrument);
+    return Number(layer?.pitchOffset) || 0;
+  }
+
+  function duplicateSequencerTrack(instrument) {
+    if (!isBassInstrument(instrument)) return null;
+    const existingTracks = new Set();
+    sequencerPattern.forEach((event) => eventLayers(event).forEach((layer) => existingTracks.add(layer.instrument)));
+    let suffix = 2;
+    let duplicate = `bass:${suffix}`;
+    while (existingTracks.has(duplicate)) {
+      suffix += 1;
+      duplicate = `bass:${suffix}`;
+    }
+    sequencerPattern = sequencerPattern.map((event) => {
+      const layers = eventLayers(event).map((layer) => ({ ...layer }));
+      const source = layers.find((layer) => layer.instrument === instrument);
+      if (source) layers.push({ ...source, instrument: duplicate });
+      return layers.length === 1 ? layers[0] : layers.length ? layers : null;
+    });
+    sequencerPattern.forEach((event, step) => notifySequencer(step, event));
+    return duplicate;
+  }
+
+  function replaceSequencerTrack(fromInstrument, toInstrument) {
+    if (!fromInstrument || !toInstrument || fromInstrument === toInstrument || !SAMPLE_URLS[toInstrument]
+      && !["kick", "hat", "clap", "bass"].includes(toInstrument)
+      && !isStampTrack(toInstrument)) return;
+    sequencerPattern = sequencerPattern.map((event) => {
+      const layers = eventLayers(event).map((layer) => {
+        const replaced = layer.instrument === fromInstrument;
+        const nextLayer = {
+          ...layer,
+          instrument: replaced ? toInstrument : layer.instrument,
+        };
+        if (replaced) {
+          delete nextLayer.muted;
+          delete nextLayer.startupOnly;
+          delete nextLayer.autoOnly;
+        }
+        return nextLayer;
+      });
+      const deduped = layers.filter((layer, index, all) => (
+        all.findIndex((candidate) => candidate.instrument === layer.instrument) === index
+      ));
+      return deduped.length === 1 ? deduped[0] : deduped.length ? deduped : null;
+    });
+    sequencerPattern.forEach((event, step) => notifySequencer(step, event));
+  }
+
+  function getSequencerInstrumentOptions() {
+    return [...new Set(["kick", "hat", "bass", "clap", "bongoLow", "bongoHigh", ...Object.keys(SAMPLE_URLS)])];
   }
 
   function setSequencerPattern(pattern) {
@@ -614,8 +902,12 @@ export function createRhodesChordEngine() {
 
   function getSequencerPattern() {
     return sequencerPattern.map((step) => {
-      if (Array.isArray(step)) return step.map((layer) => ({ ...layer }));
-      return step && { ...step };
+      const visibleLayers = eventLayers(step).filter((layer) => (
+        (!layer.startupOnly || !postStampKeysEnabled)
+        && (!layer.autoOnly || postStampKeysEnabled)
+      ));
+      if (visibleLayers.length === 1) return { ...visibleLayers[0] };
+      return visibleLayers.length ? visibleLayers.map((layer) => ({ ...layer })) : null;
     });
   }
 
@@ -626,8 +918,9 @@ export function createRhodesChordEngine() {
 
   function setSequencerVolume(instrument, volume) {
     if (!instrument) return;
-    sequencerVolumes.set(instrument, Math.max(0, Math.min(1, Number(volume) || 0)));
-    sequencerVolumeListeners.forEach((listener) => listener(instrument, sequencerVolumes.get(instrument)));
+    const nextVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+    sequencerVolumes.set(instrument, nextVolume);
+    sequencerVolumeListeners.forEach((listener) => listener(instrument, nextVolume));
   }
 
   function getSequencerVolume(instrument) {
@@ -708,12 +1001,19 @@ export function createRhodesChordEngine() {
     playSequencerSound(context, sequencerPattern[normalizedStep], context.currentTime + 0.01, normalizedStep);
   }
 
-  function playBassNote(index, scheduledTime = null, volume = 1, pitch = 0) {
+  function playBassNote(
+    index,
+    scheduledTime = null,
+    volume = 1,
+    pitch = 0,
+    reverbInput = bassReverbInput,
+    reverbSend = bassControls.reverb * 0.32,
+  ) {
     const context = getContext();
     if (!context || disposed) return;
     if (context.state !== "running") {
       unlock().then(() => {
-        if (context.state === "running") playBassNote(index, scheduledTime, volume, pitch);
+        if (context.state === "running") playBassNote(index, scheduledTime, volume, pitch, reverbInput, reverbSend);
       });
       return;
     }
@@ -743,10 +1043,10 @@ export function createRhodesChordEngine() {
     oscillator.connect(filter);
     filter.connect(gain);
     gain.connect(masterGain);
-    gain.connect(bassReverbInput);
     bodyOscillator.connect(bodyGain);
     bodyGain.connect(masterGain);
-    bodyGain.connect(bassReverbInput);
+    connectReverb(gain, context, reverbSend, reverbInput);
+    connectReverb(bodyGain, context, reverbSend, reverbInput);
     oscillator.start(now);
     bodyOscillator.start(now);
     oscillator.stop(now + Math.max(0.75, bassControls.decay + bassControls.reverbDecay));
@@ -780,17 +1080,19 @@ export function createRhodesChordEngine() {
 
   async function startScrollGroove() {
     if (grooveRunning || grooveStartPromise || disposed) return;
+    const requestId = grooveRequestId + 1;
+    grooveRequestId = requestId;
     grooveStartPromise = (async () => {
       const context = getContext();
       if (!context) return;
       await unlock();
-      if (disposed || context.state !== "running" || grooveRunning) return;
+      if (disposed || requestId !== grooveRequestId || context.state !== "running" || grooveRunning) return;
       const sampleIds = new Set();
       sequencerPattern.forEach((event) => eventLayers(event).forEach((layer) => {
         if (SAMPLE_URLS[layer.instrument]) sampleIds.add(layer.instrument);
       }));
       await Promise.all([...sampleIds].map((id) => loadSample(id)));
-      if (disposed || context.state !== "running") return;
+      if (disposed || requestId !== grooveRequestId || context.state !== "running") return;
       grooveRunning = true;
       grooveStep = 0;
       // Leave a small two-step lead-in so the first downbeat does not jump in
@@ -808,11 +1110,11 @@ export function createRhodesChordEngine() {
           const swingOffset = patternStep % 2 === 1 ? grooveStepDuration * sequencerSwing : 0;
           playSequencerSound(context, event, nextGrooveTime + swingOffset, patternStep);
           if (Math.floor(grooveStep / sequencerPattern.length) === 1
-            && patternStep === sequencerPattern.length - 1) {
+            && (patternStep === sequencerPattern.length - 2 || patternStep === sequencerPattern.length - 1)) {
             playSample("bongoHigh", {
               time: nextGrooveTime + 0.012,
-              rate: 1.08,
-              gainLevel: 0.22,
+              rate: patternStep === sequencerPattern.length - 2 ? 0.96 : 1.08,
+              gainLevel: 0.34 * getSequencerVolume("bongoHigh"),
             });
           }
           const halfPattern = Math.max(1, Math.floor(sequencerPattern.length / 2));
@@ -824,7 +1126,7 @@ export function createRhodesChordEngine() {
             );
             const cycleInstrument = stampInstrumentPattern[cycleIndex % stampInstrumentPattern.length];
             const fullCycleIndex = Math.floor(grooveStep / sequencerPattern.length);
-            const reverbSend = fullCycleIndex >= 1 ? 0.32 : 0;
+            const reverbSend = fullCycleIndex >= 1 ? bassControls.reverb * 0.32 : 0;
             playStampInstrument(1, cycleInstrument, nextGrooveTime, reverbSend);
           }
           notifySequencer(patternStep, event);
@@ -835,13 +1137,15 @@ export function createRhodesChordEngine() {
       schedule();
       grooveTimer = window.setInterval(schedule, grooveScheduleInterval);
     })().finally(() => {
-      grooveStartPromise = null;
+      if (requestId === grooveRequestId) grooveStartPromise = null;
     });
     return grooveStartPromise;
   }
 
   function stopScrollGroove() {
+    grooveRequestId += 1;
     grooveRunning = false;
+    grooveStartPromise = null;
     if (grooveTimer) window.clearInterval(grooveTimer);
     grooveTimer = null;
     nextGrooveTime = 0;
@@ -850,55 +1154,78 @@ export function createRhodesChordEngine() {
   function enablePostStampKeys() {
     postStampKeysEnabled = true;
     postStampCycleStartStep = grooveStep;
+    sequencerPattern.forEach((event, step) => notifySequencer(step, event));
   }
 
   function disablePostStampKeys() {
     postStampKeysEnabled = false;
+    sequencerPattern.forEach((event, step) => notifySequencer(step, event));
   }
 
-  async function playSound(id, step = 0) {
+  async function playSound(id, step = 0, preview = false) {
     const context = getContext();
     if (!context || disposed) return;
     if (context.state !== "running") {
       await unlock();
-      if (context.state === "running") playSound(id, step);
+      if (context.state === "running") playSound(id, step, preview);
       return;
     }
     if (SAMPLE_URLS[id]) {
-      playSample(id);
+      playSample(id, preview ? { gainLevel: 0.1 } : undefined);
       return;
     }
     const time = context.currentTime + 0.01;
-    if (id === "kick") playKick(context, time);
-    else if (id === "rim") playPercTone(context, time, 1800, 0.075, "square", 0.12);
-    else if (id === "clap") playNoiseHit(context, time, 2400, 0.13, 0.24);
-    else if (id === "hat") playNoiseHit(context, time, 7800, 0.045, 0.14);
-    else if (id === "openHat") playNoiseHit(context, time, 6200, 0.24, 0.13);
-    else if (id === "shaker") playNoiseHit(context, time, 9200, 0.07, 0.10);
-    else if (id === "clave") playPercTone(context, time, 2200, 0.08, "square", 0.10);
-    else if (id === "congaLow") playPercTone(context, time, 165, 0.36, "triangle", 0.18);
-    else if (id === "congaHigh") playPercTone(context, time, 330, 0.18, "triangle", 0.15);
-    else if (id === "cowbell") playPercTone(context, time, 760, 0.18, "square", 0.12);
-    else if (id === "agogo") playPercTone(context, time, 1040, 0.2, "triangle", 0.12);
-    else if (id === "bass") playBassNote(step % BASS_ROOTS.length);
+    const previewGain = preview ? 0.25 : 1;
+    if (id === "kick") playKick(context, time, previewGain);
+    else if (id === "rim") playPercTone(context, time, 1800, 0.075, "square", 0.12 * previewGain);
+    else if (id === "clap") playNoiseHit(context, time, 2400, 0.13, 0.24, previewGain);
+    else if (id === "hat") playNoiseHit(context, time, 7800, 0.045, 0.14, previewGain);
+    else if (id === "openHat") playNoiseHit(context, time, 6200, 0.24, 0.13, previewGain);
+    else if (id === "shaker") playNoiseHit(context, time, 9200, 0.07, 0.10, previewGain);
+    else if (id === "clave") playPercTone(context, time, 2200, 0.08, "square", 0.10 * previewGain);
+    else if (id === "congaLow") playPercTone(context, time, 165, 0.36, "triangle", 0.18 * previewGain);
+    else if (id === "congaHigh") playPercTone(context, time, 330, 0.18, "triangle", 0.15 * previewGain);
+    else if (id === "cowbell") playPercTone(context, time, 760, 0.18, "square", 0.12 * previewGain);
+    else if (id === "agogo") playPercTone(context, time, 1040, 0.2, "triangle", 0.12 * previewGain);
+    else if (id === "bass") playBassNote(step % BASS_ROOTS.length, null, previewGain);
     else if (id === "stab") playChord(step);
     else if (id === "pad") playChord(step + 1);
-    else if (id === "synthChord") playSample("synthChord", { gainLevel: 0.52 });
-    else if (id === "pluck") playPercTone(context, time, midiToFrequency(60 + (step % 5) * 2), 0.28, "sine", 0.13);
-    else if (id === "noise") playNoiseHit(context, time, 1200, 0.52, 0.06);
+    else if (id === "synthChord") playSample("synthChord", { gainLevel: 0.12 * previewGain });
+    else if (id === "pluck") playPercTone(context, time, midiToFrequency(60 + (step % 5) * 2), 0.28, "sine", 0.13 * previewGain);
+    else if (id === "noise") playNoiseHit(context, time, 1200, 0.52, 0.06, previewGain);
   }
 
-  function playChord(index) {
+  function previewSequencerInstrument(instrument) {
+    if (isBassInstrument(instrument)) {
+      playBassNote(0, null, getSequencerVolume(instrument) * 0.25);
+      return;
+    }
+    playSound(instrument, 0, true);
+  }
+
+  function playChord(
+    index,
+    {
+      variant = "classic",
+      time = null,
+      duration = 15.5,
+      volume = 1,
+      reverbInput = bassReverbInput,
+      reverbSend = bassControls.reverb * 0.32,
+    } = {},
+  ) {
     const context = getContext();
     if (!context || disposed) return;
     if (context.state !== "running") {
       unlock().then(() => {
-        if (context.state === "running") playChord(index);
+        if (context.state === "running") playChord(index, {
+          variant, time, duration, volume, reverbInput, reverbSend,
+        });
       });
       return;
     }
 
-    const now = context.currentTime + 0.015;
+    const now = time ?? context.currentTime + 0.015;
     const baseChord = CHORDS[index % CHORDS.length];
     const chord = [
       baseChord[0] - 12,
@@ -907,8 +1234,6 @@ export function createRhodesChordEngine() {
       baseChord[2] + 12,
       baseChord[4] + 12,
     ];
-    const duration = 15.5;
-
     chord.forEach((note, noteIndex) => {
       const frequency = midiToFrequency(note);
       const oscillator = context.createOscillator();
@@ -917,18 +1242,18 @@ export function createRhodesChordEngine() {
       const overtoneGain = context.createGain();
       const filter = context.createBiquadFilter();
 
-      oscillator.type = "triangle";
+      oscillator.type = variant === "glass" ? "sine" : "triangle";
       oscillator.frequency.value = frequency;
-      overtone.type = "sine";
+      overtone.type = variant === "glass" ? "triangle" : "sine";
       overtone.frequency.value = frequency * 2.01;
-      overtoneGain.gain.value = 0.11;
+      overtoneGain.gain.value = variant === "glass" ? 0.16 : variant === "velvet" ? 0.07 : 0.11;
       filter.type = "lowpass";
-      filter.frequency.value = 1850 - noteIndex * 80;
-      filter.Q.value = 0.6;
+      filter.frequency.value = (variant === "glass" ? 2400 : variant === "velvet" ? 1450 : 1850) - noteIndex * 80;
+      filter.Q.value = variant === "glass" ? 0.9 : 0.6;
 
       voiceGain.gain.setValueAtTime(0.0001, now);
-      voiceGain.gain.exponentialRampToValueAtTime(0.095, now + 0.025);
-      voiceGain.gain.exponentialRampToValueAtTime(0.06, now + 1.2);
+      voiceGain.gain.exponentialRampToValueAtTime(0.095 * volume, now + 0.025);
+      voiceGain.gain.exponentialRampToValueAtTime((variant === "velvet" ? 0.052 : 0.06) * volume, now + 1.2);
       voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       oscillator.connect(filter);
@@ -936,6 +1261,7 @@ export function createRhodesChordEngine() {
       overtoneGain.connect(filter);
       filter.connect(voiceGain);
       voiceGain.connect(masterGain);
+      connectReverb(voiceGain, context, reverbSend, reverbInput);
       oscillator.start(now);
       overtone.start(now);
       oscillator.stop(now + duration + 0.05);
@@ -963,8 +1289,15 @@ export function createRhodesChordEngine() {
     playPercussion,
     playScrollPercussion,
     playSound,
+    previewSequencerInstrument,
     getSequencerPattern,
     setSequencerStep,
+    toggleSequencerInstrument,
+    setSequencerStepPitch,
+    getSequencerStepPitch,
+    duplicateSequencerTrack,
+    replaceSequencerTrack,
+    getSequencerInstrumentOptions,
     setSequencerPattern,
     setBassPattern,
     setBassPatternDefinition,
@@ -979,6 +1312,9 @@ export function createRhodesChordEngine() {
     setSequencerVolume,
     getSequencerVolume,
     getSequencerVolumes,
+    setSequencerEffect,
+    getSequencerEffect,
+    getSequencerEffects,
     subscribeSequencerVolume,
     setSequencerSwing,
     getSequencerSwing,

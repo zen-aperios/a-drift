@@ -2,6 +2,9 @@ export const LETTERS = "APERIOS".split("");
 export const BOTTOM_VIDEO_URL = new URL("../../logofolio-web.mp4", import.meta.url).href;
 export const PLACEMENT_GRID_COLUMNS = 6;
 export const PLACEMENT_GRID_ROWS = 5;
+export const TRACE_NARROW_LAYOUT_MAX = 820;
+export const PORTAL_NARROW_LAYOUT_MAX = 500;
+export const APERIOS_WIDE_LAYOUT_MAX = 1220;
 export const ALPHABET_LETTERS = [
   ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
   ...Array.from({ length: 10 }, (_, index) => `${index + 1}`),

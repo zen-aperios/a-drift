@@ -1,6 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import footerAnimation from "../../runman01.json";
+import { FooterClock } from "./footer/FooterClock.jsx";
+import { FooterLineField } from "./footer/FooterLineField.jsx";
+import { FooterLottie } from "./footer/FooterLottie.jsx";
+import { FooterTypeComposer } from "./footer/FooterTypeComposer.jsx";
 import {
   THREE,
   createMediaRenderer,
@@ -36,83 +39,483 @@ import {
   LETTERS,
   PLACEMENT_GRID_COLUMNS,
   PLACEMENT_GRID_ROWS,
+  TRACE_NARROW_LAYOUT_MAX,
 } from "./traceConfig.js";
 
 const TRACE_DPR_CAP = 1.25;
 
-function FooterClock() {
-  const [time, setTime] = useState(() => new Date());
+const MINI_SEQUENCER_LABELS = {
+  kick: "KICK",
+  hat: "HAT",
+  bass: "BASS",
+  bongoLow: "BONGO LOW",
+  bongoHigh: "BONGO HIGH",
+  clap: "CLAP",
+};
+
+function miniInstrumentLabel(instrument) {
+  if (instrument?.startsWith("bass:")) return `BASS ${instrument.split(":")[1]}`;
+  return MINI_SEQUENCER_LABELS[instrument]
+    || instrument.replace(/^[^:]+:/, "").replaceAll("_", " ").toUpperCase();
+}
+
+function MiniTrackDropdown({ engine, value, groups, placeholder, onChange }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
-    let active = true;
-    let currentTime = new Date();
-
-    fetch("https://worldtimeapi.org/api/timezone/Europe/Lisbon")
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => {
-        if (active && data.datetime) currentTime = new Date(data.datetime);
-      })
-      .catch(() => {});
-
-    const timer = window.setInterval(() => {
-      currentTime = new Date(currentTime.getTime() + 1000);
-      if (active) setTime(currentTime);
-    }, 1000);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
+    if (!open) return undefined;
+    const close = (event) => {
+      if (!dropdownRef.current?.contains(event.target)) setOpen(false);
     };
-  }, []);
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
 
   return (
-    <time dateTime={time.toISOString()}>
-      {new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Europe/Lisbon",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).format(time)}
-    </time>
+    <div className={`mini-track-dropdown${open ? " is-open" : ""}${!value ? " mini-track-dropdown--add" : ""}`} ref={dropdownRef}>
+      <button
+        className="mini-track-dropdown__trigger"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {value ? miniInstrumentLabel(value) : placeholder}
+        {value && <span aria-hidden="true">+</span>}
+      </button>
+      {open && (
+        <div
+          className="mini-track-dropdown__menu"
+          role="listbox"
+          data-lenis-prevent
+          onWheel={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.scrollTop += event.deltaY;
+            window.requestAnimationFrame(() => {
+              const option = document
+                .elementFromPoint(event.clientX, event.clientY)
+                ?.closest(".mini-track-dropdown__option");
+              const instrument = option?.dataset.instrument;
+              if (instrument) engine?.previewSequencerInstrument?.(instrument);
+            });
+          }}
+          onTouchMove={(event) => event.stopPropagation()}
+        >
+          {groups.map((group) => (
+            <div className="mini-track-dropdown__group" key={group.label}>
+              <div className="mini-track-dropdown__separator">{group.label}</div>
+              {group.items.map((option) => (
+                <button
+                  className={`mini-track-dropdown__option${option === value ? " is-current" : ""}`}
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={option === value}
+                  data-instrument={option}
+                  onMouseEnter={() => engine?.previewSequencerInstrument?.(option)}
+                  onFocus={() => engine?.previewSequencerInstrument?.(option)}
+                  onClick={() => {
+                    onChange(option);
+                    setOpen(false);
+                  }}
+                >
+                  {miniInstrumentLabel(option)}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
-function FooterLottie() {
-  const containerRef = useRef(null);
+function MiniSequencer({
+  engine,
+  instrumentOptions = [],
+  isOpen = false,
+  imageGridVisible = false,
+  onToggleImageGrid = () => {},
+}) {
+  const [pattern, setPattern] = useState(() => engine?.getSequencerPattern?.() ?? []);
+  const [activeStep, setActiveStep] = useState(-1);
+  const [selectedTrack, setSelectedTrack] = useState("");
+  const [trackPages, setTrackPages] = useState({});
+  const [manualPageOverrides, setManualPageOverrides] = useState({});
+  const [editingStep, setEditingStep] = useState(null);
+  const [flashingStep, setFlashingStep] = useState(null);
+  const [notePitch, setNotePitch] = useState(0);
+  const [trackVolume, setTrackVolume] = useState(1);
+  const [reverb, setReverb] = useState(0);
+  const [reverbDecay, setReverbDecay] = useState(0);
+  const [editingTrack, setEditingTrack] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const clickTimerRef = useRef(null);
+  const flashTimerRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
-    if (!containerRef.current) return undefined;
-    let disposed = false;
-    let animation;
+    if (!panelRef.current) return undefined;
+    const panel = panelRef.current;
+    gsap.killTweensOf(panel);
+    gsap.set(panel, { xPercent: -50 });
 
-    import("lottie-web/build/player/lottie_light").then(({ default: lottie }) => {
-      if (disposed || !containerRef.current) return;
-      animation = lottie.loadAnimation({
-        container: containerRef.current,
-        renderer: "svg",
-        loop: true,
-        autoplay: true,
-        animationData: footerAnimation,
+    const timeline = gsap.timeline();
+    timeline.to(panel, {
+      yPercent: isOpen ? 0 : 100,
+      duration: 0.9,
+      ease: "power4.out",
+    }, 0);
+    timeline.to(panel, {
+      opacity: isOpen ? 1 : 0,
+      duration: 0.3,
+      ease: "power2.out",
+    }, 0);
+
+    return () => timeline.kill();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!engine) return undefined;
+    setPattern(engine.getSequencerPattern?.() ?? []);
+    return engine.subscribeSequencer?.((step, event) => {
+      setActiveStep(step);
+      setPattern((current) => {
+        if (!current.length) return engine.getSequencerPattern?.() ?? [];
+        const next = current.slice();
+        next[step] = event;
+        return next;
       });
-    });
+    }) ?? undefined;
+  }, [engine]);
 
-    return () => {
-      disposed = true;
-      animation?.destroy();
-    };
+  const tracks = [];
+  pattern.forEach((event) => {
+    (Array.isArray(event) ? event : [event]).filter(Boolean).forEach((layer) => {
+      if (layer.instrument && layer.instrument !== "stamp:korg" && !tracks.includes(layer.instrument)) {
+        tracks.push(layer.instrument);
+      }
+    });
+  });
+
+  const visibleTrack = selectedTrack === "stamp:korg" ? tracks[0] : selectedTrack || tracks[0];
+  const displayTracks = visibleTrack && !tracks.includes(visibleTrack)
+    ? [...tracks, visibleTrack]
+    : tracks;
+  const allInstrumentOptions = [...new Set([...instrumentOptions, ...displayTracks])];
+  const instrumentGroups = [
+    { label: "CORE", items: allInstrumentOptions.filter((item) => !item.includes(":") || item.startsWith("bass:")) },
+    { label: "727", items: allInstrumentOptions.filter((item) => item.startsWith("727:")) },
+    { label: "808", items: allInstrumentOptions.filter((item) => item.startsWith("808:")) },
+    { label: "909", items: allInstrumentOptions.filter((item) => item.startsWith("909:")) },
+  ].filter((group) => group.items.length);
+
+  useEffect(() => {
+    if (!tracks.includes(selectedTrack) && !instrumentOptions.includes(selectedTrack)) {
+      setSelectedTrack(tracks[0] || "");
+    }
+  }, [instrumentOptions, selectedTrack, tracks.join("|")]);
+
+  useEffect(() => {
+    if (activeStep >= 0 && visibleTrack && manualPageOverrides[visibleTrack] === undefined) {
+      setTrackPages((pages) => ({ ...pages, [visibleTrack]: Math.floor(activeStep / 16) }));
+    }
+  }, [activeStep, manualPageOverrides, visibleTrack]);
+
+  useEffect(() => () => {
+    window.clearTimeout(clickTimerRef.current);
+    window.clearTimeout(flashTimerRef.current);
   }, []);
 
-  return <div ref={containerRef} className="site-footer__lottie" aria-label="Animated mark" />;
-}
+  useEffect(() => {
+    if (editingStep === null) return;
+    setNotePitch(engine?.getSequencerStepPitch?.(editingStep, visibleTrack) ?? 0);
+  }, [engine, editingStep, visibleTrack, pattern]);
 
-function FooterLineField() {
+  useEffect(() => {
+    setTrackVolume(engine?.getSequencerVolume?.(visibleTrack) ?? 1);
+  }, [engine, visibleTrack]);
+
+  useEffect(() => {
+    const effect = engine?.getSequencerEffect?.(visibleTrack);
+    if (!effect) return;
+    setReverb(effect.reverb);
+    setReverbDecay(effect.reverbDecay);
+  }, [engine, visibleTrack]);
+
+  const stepPage = trackPages[visibleTrack] ?? 0;
+  const pageStart = stepPage * 16;
+  const visibleSteps = pattern.slice(pageStart, pageStart + 16);
+
+  const toggleStep = (step, isAssigned) => {
+    window.clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = window.setTimeout(() => {
+      engine?.toggleSequencerInstrument(step, visibleTrack);
+      setEditingStep((current) => {
+        if (!isAssigned) return step;
+        return current === step ? null : current;
+      });
+    }, 220);
+  };
+
+  const editStep = (step, isAssigned) => {
+    window.clearTimeout(clickTimerRef.current);
+    if (!isAssigned) return;
+    setEditingStep(step);
+    setFlashingStep(step);
+    window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashingStep(null), 700);
+    setTrackPages((pages) => ({ ...pages, [visibleTrack]: Math.floor(step / 16) }));
+    setNotePitch(engine?.getSequencerStepPitch?.(step, visibleTrack) ?? 0);
+  };
+
+  const exportSequence = () => {
+    if (!engine) return;
+    const config = {
+      bpm: 120,
+      pattern: engine.getSequencerPattern?.() ?? [],
+      trackLevels: engine.getSequencerVolumes?.() ?? {},
+      trackEffects: engine.getSequencerEffects?.() ?? {},
+      swing: engine.getSequencerSwing?.() ?? 0,
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "a-drift-sequence.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <span className="site-footer__line-cell" aria-hidden="true">
-      <span className="site-footer__line-field">
-        {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
-      </span>
-    </span>
+    <div
+      ref={panelRef}
+      className={`mini-sequencer${isOpen ? " is-open" : ""}`}
+      aria-label="Live music sequencer"
+      aria-hidden={!isOpen}
+    >
+      <div className="mini-sequencer__header">
+        <div className="mini-sequencer__title">SEQUENCER</div>
+        <button className="mini-sequencer__export" type="button" onClick={exportSequence}>
+          EXP
+        </button>
+        <button
+          className="mini-sequencer__settings"
+          type="button"
+          aria-expanded={settingsOpen}
+          onClick={() => setSettingsOpen((open) => !open)}
+        >
+          SETTINGS
+        </button>
+        <button
+          className={`mini-sequencer__image-grid${imageGridVisible ? " is-active" : ""}`}
+          type="button"
+          aria-pressed={imageGridVisible}
+          onClick={onToggleImageGrid}
+        >
+          GRID
+        </button>
+        <span className="mini-sequencer__header-divider" aria-hidden="true" />
+        <span className="mini-sequencer__bpm" aria-label="Current tempo">
+          <span className="mini-sequencer__bpm-number">120</span>
+          <span className="mini-sequencer__bpm-unit">BPM</span>
+        </span>
+      </div>
+      {isOpen && settingsOpen && (
+      <>
+      <div className="mini-sequencer__tabs" role="tablist" aria-label="Sequencer instruments">
+        {displayTracks.map((instrument) => (
+          editingTrack === instrument ? (
+            <MiniTrackDropdown
+              engine={engine}
+              key={instrument}
+              value={instrument}
+              groups={instrumentGroups}
+              placeholder="REPLACE"
+              onChange={(nextInstrument) => {
+                engine?.replaceSequencerTrack(instrument, nextInstrument);
+                setSelectedTrack(nextInstrument);
+                setEditingTrack(null);
+              }}
+            />
+          ) : (
+            <button
+              className={`mini-sequencer__tab${visibleTrack === instrument ? " is-selected" : ""}`}
+              key={instrument}
+              type="button"
+              role="tab"
+              aria-selected={visibleTrack === instrument}
+              onClick={() => setSelectedTrack(instrument)}
+              onDoubleClick={() => setEditingTrack(instrument)}
+              title="Double-click to replace this track"
+            >
+              {miniInstrumentLabel(instrument)}
+            </button>
+          )
+        ))}
+        <MiniTrackDropdown
+          engine={engine}
+          value=""
+          groups={instrumentGroups.map((group) => ({
+            ...group,
+            items: group.items.filter((option) => !displayTracks.includes(option)),
+          })).filter((group) => group.items.length)}
+          placeholder="+ TRACK"
+          onChange={(nextInstrument) => setSelectedTrack(nextInstrument)}
+        />
+      </div>
+      {visibleTrack?.startsWith("bass") && (
+        <button
+          className="mini-sequencer__copy-rhythm"
+          type="button"
+          onClick={() => {
+            const duplicate = engine?.duplicateSequencerTrack?.(visibleTrack);
+            if (duplicate) setSelectedTrack(duplicate);
+          }}
+        >
+          COPY RHYTHM
+        </button>
+      )}
+      {editingStep !== null && (
+        <div className="mini-sequencer__pitch" aria-label="Selected note pitch">
+          <button
+            className="mini-sequencer__pitch-button"
+            type="button"
+            aria-label="Pitch down one semitone"
+            disabled={!engine || !visibleTrack || notePitch <= -12}
+            onClick={() => {
+              const next = engine.setSequencerStepPitch(editingStep, visibleTrack, -1);
+              setNotePitch(next);
+            }}
+          >
+            -
+          </button>
+          <span>{`NOTE ${editingStep + 1}  PITCH ${notePitch >= 0 ? `+${notePitch}` : notePitch}`}</span>
+          <button
+            className="mini-sequencer__pitch-button"
+            type="button"
+            aria-label="Pitch up one semitone"
+            disabled={!engine || !visibleTrack || notePitch >= 12}
+            onClick={() => {
+              const next = engine.setSequencerStepPitch(editingStep, visibleTrack, 1);
+              setNotePitch(next);
+            }}
+          >
+            +
+          </button>
+        </div>
+      )}
+      <div className="mini-sequencer__controls-row">
+        <label className="mini-sequencer__volume">
+          <span>LEVEL {Math.round(trackVolume * 100)}%</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={trackVolume}
+            disabled={!engine || !visibleTrack}
+            aria-label={`${visibleTrack || "Instrument"} volume`}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setTrackVolume(next);
+              engine?.setSequencerVolume(visibleTrack, next);
+            }}
+          />
+        </label>
+        <div className="mini-sequencer__effects">
+        <label className="mini-sequencer__effect">
+          <span>REVERB {Math.round(reverb * 100)}%</span>
+          <input
+            type="range"
+            min="0"
+            max="0.6"
+            step="0.01"
+            value={reverb}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setReverb(next);
+              engine?.setSequencerEffect(visibleTrack, "reverb", next);
+            }}
+          />
+        </label>
+        <label className="mini-sequencer__effect">
+          <span>DECAY {reverbDecay.toFixed(2)}S</span>
+          <input
+            type="range"
+            min="0"
+            max="4"
+            step="0.05"
+            value={reverbDecay}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setReverbDecay(next);
+              engine?.setSequencerEffect(visibleTrack, "reverbDecay", next);
+            }}
+          />
+        </label>
+        </div>
+      </div>
+      </>
+      )}
+      <div className={`mini-sequencer__pager${settingsOpen ? " is-settings-open" : ""}`}>
+        <button
+          className="mini-sequencer__arrow"
+          type="button"
+          aria-label="Previous 16 steps"
+          disabled={stepPage === 0}
+          onClick={() => {
+            const nextPage = Math.max(0, stepPage - 1);
+            setTrackPages((pages) => ({ ...pages, [visibleTrack]: nextPage }));
+            setManualPageOverrides((pages) => ({ ...pages, [visibleTrack]: nextPage }));
+          }}
+        >
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M8.5 1.5 4 6l4.5 4.5" />
+          </svg>
+        </button>
+        {settingsOpen && (
+          <span className="mini-sequencer__page" aria-live="polite">
+            {String(stepPage + 1).padStart(2, "0")} / 04
+          </span>
+        )}
+        <div className="mini-sequencer__steps" role="tabpanel" aria-label={`${visibleTrack || "Instrument"} steps`}>
+        {visibleSteps.map((event, localStep) => {
+          const step = pageStart + localStep;
+          const layers = Array.isArray(event) ? event : [event];
+          const isAssigned = layers.some((layer) => layer?.instrument === visibleTrack);
+          return (
+            <button
+              className={`mini-sequencer__step${isAssigned ? " is-filled" : ""}${activeStep === step ? " is-active" : ""}${editingStep === step ? " is-editing" : ""}${flashingStep === step ? " is-flashing" : ""}`}
+              key={`${visibleTrack}-${step}`}
+              type="button"
+              aria-label={`${isAssigned ? "Remove" : "Add"} ${visibleTrack || "instrument"} on step ${step + 1}`}
+              disabled={!engine || !visibleTrack}
+              onClick={() => toggleStep(step, isAssigned)}
+              onDoubleClick={() => editStep(step, isAssigned)}
+            />
+          );
+        })}
+        </div>
+        <button
+          className="mini-sequencer__arrow"
+          type="button"
+          aria-label="Next 16 steps"
+          disabled={stepPage === 3}
+          onClick={() => {
+            const nextPage = Math.min(3, stepPage + 1);
+            setTrackPages((pages) => ({ ...pages, [visibleTrack]: nextPage }));
+            setManualPageOverrides((pages) => ({ ...pages, [visibleTrack]: nextPage }));
+          }}
+        >
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="m3.5 1.5 4.5 4.5-4.5 4.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -120,7 +523,13 @@ export default function TraceDream() {
   const canvasRef = useRef(null);
   const rhodesEngineRef = useRef(null);
   const soundEnabledRef = useRef(false);
+  const soundScrollStartedRef = useRef(false);
+  const soundScrollPositionRef = useRef(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [sequencerOpen, setSequencerOpen] = useState(false);
+  const [imageGridVisible, setImageGridVisible] = useState(false);
+  const [rhodesEngine, setRhodesEngine] = useState(null);
+  const [sequencerInstrumentOptions, setSequencerInstrumentOptions] = useState([]);
   const bottomCanvasRef = useRef(null);
   const bottomGhostCanvasRef = useRef(null);
   const mediaBackCanvasRef = useRef(null);
@@ -156,29 +565,40 @@ export default function TraceDream() {
     const stage = canvas.closest(".trace-stage");
     const q = (selector) => stage.querySelector(selector);
     let cancelled = false;
-    let audioScrollStarted = false;
     const startScrollAudio = () => {
-      if (audioScrollStarted || !soundEnabledRef.current) return;
-      audioScrollStarted = true;
-      rhodesChordEngine.startScrollGroove();
+      if (!soundEnabledRef.current) return;
+      soundScrollStartedRef.current = true;
+      void rhodesChordEngine.startScrollGroove();
     };
     const stopScrollAudio = () => {
-      if (!audioScrollStarted) return;
-      audioScrollStarted = false;
+      if (!soundScrollStartedRef.current) return;
+      soundScrollStartedRef.current = false;
       rhodesChordEngine.stopScrollGroove();
     };
     const startAudioFromWheel = (event) => {
-      if (event.deltaY > 0) startScrollAudio();
+      if (event.deltaY > 0) {
+        soundScrollPositionRef.current = Math.max(soundScrollPositionRef.current, 1);
+        startScrollAudio();
+      }
     };
     window.addEventListener("wheel", startAudioFromWheel, { passive: true });
     const state = createTraceState();
+    const setPlacementGridVisibility = (event) => {
+      state.hidePlacementGrid = !Boolean(event.detail?.visible);
+    };
+    window.addEventListener("trace:placement-grid", setPlacementGridVisibility);
     const rhodesChordEngine = createRhodesChordEngine();
     rhodesEngineRef.current = rhodesChordEngine;
+    setRhodesEngine(rhodesChordEngine);
+    setSequencerInstrumentOptions(rhodesChordEngine.getSequencerInstrumentOptions?.() ?? []);
     const unlockRhodesAudio = (event) => {
-      rhodesChordEngine.unlock();
-      if (event?.type === "wheel" && event.deltaY > 0) startScrollAudio();
+      if (event?.type === "wheel") {
+        if (event.deltaY > 0) startScrollAudio();
+        return;
+      }
+      void rhodesChordEngine.unlock();
     };
-    const audioUnlockEvents = ["pointerdown", "touchstart", "wheel", "keydown"];
+    const audioUnlockEvents = ["pointerdown", "touchstart", "keydown"];
     audioUnlockEvents.forEach((eventName) => window.addEventListener(eventName, unlockRhodesAudio, { passive: true }));
     const portalRuntimeController = createPortalRuntimeController({ state, gsap });
     const compositionController = createTraceCompositionController();
@@ -474,6 +894,9 @@ export default function TraceDream() {
       state.dpr = Math.min(window.devicePixelRatio || 1, TRACE_DPR_CAP);
       state.width = window.innerWidth;
       state.height = window.innerHeight;
+      state.fontSize = state.width <= TRACE_NARROW_LAYOUT_MAX
+        ? Math.min(160, Math.max(64, state.width * 0.217 - 17))
+        : 160;
       state.renderHeight = Math.max(state.renderHeight, state.height * 2);
       syncRenderSurfaces();
       rebuildLayout();
@@ -510,11 +933,8 @@ export default function TraceDream() {
       portalAssetController,
       syncPortalConfigExport,
       onScroll: () => {
-        rhodesChordEngine.unlock();
-        if (soundEnabledRef.current) {
-          if (!audioScrollStarted) startScrollAudio();
-          else rhodesChordEngine.startScrollGroove();
-        }
+        soundScrollPositionRef.current = state.scrollY;
+        if (soundEnabledRef.current) startScrollAudio();
         onScroll();
       },
       resize,
@@ -542,7 +962,10 @@ export default function TraceDream() {
       portalAssetController.dispose();
       rhodesChordEngine.dispose();
       rhodesEngineRef.current = null;
+      setRhodesEngine(null);
+      setSequencerInstrumentOptions([]);
       window.removeEventListener("wheel", startAudioFromWheel);
+      window.removeEventListener("trace:placement-grid", setPlacementGridVisibility);
       audioUnlockEvents.forEach((eventName) => window.removeEventListener(eventName, unlockRhodesAudio));
       noiseTexture.dispose();
       mediaBackRenderer.dispose();
@@ -554,26 +977,38 @@ export default function TraceDream() {
 
   return (
     <section className="trace-stage">
-      <button
-        className="rhodes-audio-button"
-        type="button"
-        aria-label="Play Rhodes sound"
-        title="Play Rhodes sound"
-        onClick={async () => {
-          const engine = rhodesEngineRef.current;
-          if (engine) await engine.unlock();
-          const nextEnabled = !soundEnabledRef.current;
-          soundEnabledRef.current = nextEnabled;
-          setSoundEnabled(nextEnabled);
-          if (engine && nextEnabled) {
-            // The button arms audio; the next scroll is the playback trigger.
-          } else if (engine) {
-            engine.stopScrollGroove();
-          }
-        }}
-      >
-        {soundEnabled ? "Sound on" : "Sound off"}
-      </button>
+      <div className="hero-top-bar">
+        <div className="hero-lottie">
+          <FooterLottie />
+        </div>
+        <div className="rhodes-audio-control">
+          <button
+            className="rhodes-audio-button"
+            type="button"
+            aria-label="Play Rhodes sound"
+            title="Play Rhodes sound"
+            onClick={async () => {
+              const engine = rhodesEngineRef.current;
+              if (engine) await engine.unlock();
+              const nextEnabled = !soundEnabledRef.current;
+              soundEnabledRef.current = nextEnabled;
+              setSoundEnabled(nextEnabled);
+              if (engine && nextEnabled) {
+                // Restart from a clean state so the toggle works at any scroll position.
+                soundScrollStartedRef.current = false;
+                engine.stopScrollGroove();
+                soundScrollStartedRef.current = true;
+                void engine.startScrollGroove();
+              } else if (engine) {
+                soundScrollStartedRef.current = false;
+                engine.stopScrollGroove();
+              }
+            }}
+          >
+            {soundEnabled ? "Sound on" : "Sound off"}
+          </button>
+        </div>
+      </div>
       <div className="trace-scroll-shell">
         <div className="trace-viewport">
           <canvas ref={mediaBackCanvasRef} className="trace-media-canvas trace-media-canvas--back" />
@@ -600,21 +1035,34 @@ export default function TraceDream() {
         </div>
         <AlphabetGenerator />
       </div>
+      <FooterTypeComposer />
       <footer className="site-footer" aria-label="Footer grid">
         <div className="site-footer__grid">
-          <span className="site-footer__lottie-cell"><FooterLottie /></span>
+          <span className="site-footer__lottie-cell" aria-hidden="true" />
           <FooterLineField />
-          <span className="site-footer__back-to-top-cell">
-            <button
-              className="site-footer__back-to-top"
-              type="button"
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            >
-              Back to top
-            </button>
-          </span>
-          <span className="site-footer__label">RunRobRun.ltd</span>
-          <span aria-hidden="true" />
+          <MiniSequencer
+            engine={rhodesEngine}
+            instrumentOptions={sequencerInstrumentOptions}
+            isOpen={sequencerOpen}
+            imageGridVisible={imageGridVisible}
+            onToggleImageGrid={() => {
+              const visible = !imageGridVisible;
+              setImageGridVisible(visible);
+              window.dispatchEvent(new CustomEvent("trace:placement-grid", {
+                detail: { visible },
+              }));
+            }}
+          />
+        </div>
+        <div className="site-footer__bottom-row">
+          <button
+            className="site-footer__label site-footer__sequencer-toggle"
+            type="button"
+            aria-expanded={sequencerOpen}
+            onClick={() => setSequencerOpen((open) => !open)}
+          >
+            SEQUENCER
+          </button>
           <span className="site-footer__time"><FooterClock /></span>
         </div>
       </footer>

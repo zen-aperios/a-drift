@@ -39,6 +39,10 @@ export function createPortalRenderer({
     });
 
     state.portalImages.forEach((item) => {
+      if (item.layoutHidden) {
+        setPortalReveal(item, 0);
+        return;
+      }
       const rawScreenY = item.y - state.rawScrollY + state.height * 0.18;
       // Only the Firefox DOM fallback is gated here. Keep shader image work
       // unchanged in Chrome/Brave, where it is part of the visual effect.

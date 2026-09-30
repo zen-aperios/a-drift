@@ -22,23 +22,29 @@ export function createBottomGhostRenderer({
 }) {
   const glyphCache = new Map();
 
+  function getFontSize() {
+    if (state.width > 820) return CONFIG.fontSize;
+    return Math.min(CONFIG.fontSize, Math.max(48, state.width * 0.173 - 17));
+  }
+
   function getGlyphCanvas(letter, solid) {
+    const fontSize = getFontSize();
     const color = solid ? CONFIG.fillColor : CONFIG.ghostColor;
-    const key = `${letter}|${solid ? "fill" : "stroke"}|${CONFIG.fontSize}|${CONFIG.ghostLineWidth}|${color}`;
+    const key = `${letter}|${solid ? "fill" : "stroke"}|${fontSize}|${CONFIG.ghostLineWidth}|${color}`;
     if (glyphCache.has(key)) return glyphCache.get(key);
 
     ctx.save();
-    ctx.font = `900 ${CONFIG.fontSize}px Helvetica, Arial, sans-serif`;
+    ctx.font = `900 ${fontSize}px Helvetica, Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const metrics = ctx.measureText(letter);
     ctx.restore();
 
-    const left = -(metrics.actualBoundingBoxLeft || CONFIG.fontSize * 0.28);
-    const right = metrics.actualBoundingBoxRight || CONFIG.fontSize * 0.28;
-    const top = -(metrics.actualBoundingBoxAscent || CONFIG.fontSize * 0.5);
-    const bottom = metrics.actualBoundingBoxDescent || CONFIG.fontSize * 0.18;
-    const pad = CONFIG.fontSize * 0.3;
+    const left = -(metrics.actualBoundingBoxLeft || fontSize * 0.28);
+    const right = metrics.actualBoundingBoxRight || fontSize * 0.28;
+    const top = -(metrics.actualBoundingBoxAscent || fontSize * 0.5);
+    const bottom = metrics.actualBoundingBoxDescent || fontSize * 0.18;
+    const pad = fontSize * 0.3;
     const width = Math.ceil(right - left + pad * 2);
     const height = Math.ceil(bottom - top + pad * 2);
     const offscreen = document.createElement("canvas");
@@ -46,7 +52,7 @@ export function createBottomGhostRenderer({
     offscreen.height = Math.max(1, Math.ceil(height * state.dpr));
     const offscreenCtx = offscreen.getContext("2d");
     offscreenCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-    offscreenCtx.font = `900 ${CONFIG.fontSize}px Helvetica, Arial, sans-serif`;
+    offscreenCtx.font = `900 ${fontSize}px Helvetica, Arial, sans-serif`;
     offscreenCtx.textAlign = "center";
     offscreenCtx.textBaseline = "middle";
     offscreenCtx.lineJoin = "miter";
@@ -72,7 +78,7 @@ export function createBottomGhostRenderer({
     const videoAspect = state.bottomVideo?.aspect || 16 / 9;
     const videoHeight = videoWidth / Math.max(0.1, videoAspect);
     const rowGap = videoHeight * 0.35;
-    const baseY = state.bottomSectionStart + state.height * 0.54 - rowGap * 0.5;
+    const baseY = state.bottomSectionStart + state.bottomVideoCenterOffset - rowGap * 0.5;
     const stamps = [];
     const rowStamps = [];
 
@@ -197,11 +203,12 @@ export function createBottomGhostRenderer({
 
   function draw() {
     if (!state.bottomGhostGrid.length) return;
+    const fontSize = getFontSize();
     const progress = getProgress();
     if (progress <= 0.001) return;
 
     const trailProgress = clamp(progress, 0, 1);
-    const gridWorldCenterY = state.bottomSectionStart + state.height * 0.54;
+    const gridWorldCenterY = state.bottomSectionStart + state.bottomVideoCenterOffset;
     const frame = getFrame();
     const textCenterY = frame.y;
     const textDocumentCenterY = frame.documentY ?? frame.y + state.rawScrollY;
@@ -218,7 +225,7 @@ export function createBottomGhostRenderer({
       for (let index = 0; index < visibleCount; index += 1) {
         const ghost = segment.ghosts[index];
         const screenY = textCenterY + (ghost.y - gridWorldCenterY);
-        if (screenY < -CONFIG.fontSize * 1.5 || screenY > state.height + CONFIG.fontSize * 1.5) continue;
+        if (screenY < -fontSize * 1.5 || screenY > state.height + fontSize * 1.5) continue;
         const fade = visibleCount <= 1 ? 1 : 1 - index / Math.max(1, visibleCount - 1);
         const headDistance = clamp((drawProgress - ghost.pathProgress) / 0.08, 0, 1);
         drawGlyph(
@@ -240,7 +247,7 @@ export function createBottomGhostRenderer({
       if (stampReveal <= 0.001) return;
       const stampEased = heroDismissEase(stampReveal);
       const screenY = textCenterY + (stamp.y - gridWorldCenterY);
-      if (screenY < -CONFIG.fontSize * 1.5 || screenY > state.height + CONFIG.fontSize * 1.5) return;
+      if (screenY < -fontSize * 1.5 || screenY > state.height + fontSize * 1.5) return;
       const y = textDocumentCenterY + (stamp.y - gridWorldCenterY) - drawOffsetY;
       drawGlyph(stamp, y, false, stampIndex, state.bottomGhostGrid.length, stampEased * CONFIG.ghostOpacity * 0.62);
       drawGlyph(stamp, y, true, stampIndex, state.bottomGhostGrid.length, stampEased);

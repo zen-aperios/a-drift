@@ -1,4 +1,4 @@
-import { PLACEMENT_GRID_COLUMNS, PLACEMENT_GRID_ROWS } from "./traceConfig.js";
+import { PLACEMENT_GRID_COLUMNS, PLACEMENT_GRID_ROWS, PORTAL_NARROW_LAYOUT_MAX } from "./traceConfig.js";
 
 // Owns portal editor guides, resize handles, layer toggle drawing, and config export.
 export function createPortalEditorController({
@@ -56,8 +56,11 @@ export function createPortalEditorController({
 
   function drawPlacementGrid() {
     if (state.hidePlacementGrid || !state.anchors.length) return;
-    const left = state.width * 0.08;
-    const width = state.width * 0.84;
+    const mobile = state.width <= PORTAL_NARROW_LAYOUT_MAX;
+    const columns = mobile ? 1 : PLACEMENT_GRID_COLUMNS;
+    const rows = mobile ? 10 : PLACEMENT_GRID_ROWS;
+    const left = mobile ? 10 : state.width * 0.08;
+    const width = mobile ? Math.max(1, state.width - 20) : state.width * 0.84;
     const padY = state.fontSize * 0.55;
 
     ctx.save();
@@ -82,12 +85,12 @@ export function createPortalEditorController({
       ctx.strokeStyle = "#ffffff";
       ctx.strokeRect(left, top, width, height);
       ctx.globalAlpha = 0.14;
-      for (let column = 1; column < PLACEMENT_GRID_COLUMNS; column += 1) {
-        const x = left + (width * column) / PLACEMENT_GRID_COLUMNS;
+      for (let column = 1; column < columns; column += 1) {
+        const x = left + (width * column) / columns;
         ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
       }
-      for (let row = 1; row < PLACEMENT_GRID_ROWS; row += 1) {
-        const y = top + (height * row) / PLACEMENT_GRID_ROWS;
+      for (let row = 1; row < rows; row += 1) {
+        const y = top + (height * row) / rows;
         ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + width, y); ctx.stroke();
       }
       ctx.globalAlpha = 0.34;

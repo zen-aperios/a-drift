@@ -3,11 +3,11 @@ import gsap from "gsap";
 // Owns bottom ghost/video section coordinates and its reveal timing state.
 export function createBottomSectionController({ state, animation }) {
   function getVideoBaseScreenY() {
-    return state.bottomSectionStart + state.height * 0.54 - state.scrollY + state.height * 0.18;
+    return state.bottomSectionStart + state.bottomVideoCenterOffset - state.scrollY + state.height * 0.18;
   }
 
   function getVideoBaseRawScreenY() {
-    return state.bottomSectionStart + state.height * 0.54 - state.rawScrollY + state.height * 0.18;
+    return state.bottomSectionStart + state.bottomVideoCenterOffset - state.rawScrollY + state.height * 0.18;
   }
 
   function startAnimation() {

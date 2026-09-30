@@ -1,3 +1,9 @@
+import {
+  APERIOS_WIDE_LAYOUT_MAX,
+  PORTAL_NARROW_LAYOUT_MAX,
+  TRACE_NARROW_LAYOUT_MAX,
+} from "./traceConfig.js";
+
 export function createHeroLayoutController({ state, ctx, glyphRenderer, getLetters, syncCreativitySceneMetrics }) {
   function getWarpPhase(x, y) {
     return x * 0.004 + y * 0.003;
@@ -95,23 +101,34 @@ export function createHeroLayoutController({ state, ctx, glyphRenderer, getLette
   function buildAnchors() {
     const letters = getLetters();
     const anchors = [];
-    const leftX = state.width * 0.28;
-    const rightX = state.width * 0.72;
+    const mobileInset = state.fontSize * 0.5 + 10;
+    const leftX = state.width <= APERIOS_WIDE_LAYOUT_MAX ? mobileInset : state.width * 0.28;
+    const rightX = state.width <= APERIOS_WIDE_LAYOUT_MAX ? state.width - mobileInset : state.width * 0.72;
     const gap = state.height * (state.rowGapVh / 100);
     const topOffset = state.height * 0.32;
-    const heroY = state.height * 0.5 - state.height * 0.18;
+    const compactHero = state.width <= TRACE_NARROW_LAYOUT_MAX;
+    const heroTopInset = compactHero ? Math.min(100, state.height * 0.12) : 0;
+    const heroVisualCenter = heroTopInset + (state.height - heroTopInset) * 0.5;
+    const heroY = heroVisualCenter - state.height * 0.18;
     const heroAnchorX = getCenteredHeroAnchorX();
+    const aperiosScale = state.width <= TRACE_NARROW_LAYOUT_MAX ? 0.88 : 1;
     for (let i = 0; i < letters.length; i += 1) {
-      anchors.push(createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true));
+      const stamp = createStamp(i === 0 ? heroAnchorX : i % 2 === 0 ? leftX : rightX, i === 0 ? heroY : topOffset + gap * i, letters[i], true);
+      stamp.scale = aperiosScale;
+      anchors.push(stamp);
     }
 
     const lastAnchorY = anchors[anchors.length - 1]?.y || topOffset + gap * Math.max(0, letters.length - 1);
-    state.bottomSectionStart = lastAnchorY + 120;
     const bottomVideoHeight = (state.width * 0.95) / (state.bottomVideo?.aspect || 16 / 9);
+    const compactBottomSection = state.width <= TRACE_NARROW_LAYOUT_MAX;
+    state.bottomSectionStart = lastAnchorY + (compactBottomSection ? 48 : 120);
+    state.bottomVideoCenterOffset = compactBottomSection
+      ? state.fontSize * 0.5 + bottomVideoHeight * 0.5
+      : state.height * 0.54;
     const bottomMargin = 48;
-    const creativityGap = 192;
+    const creativityGap = state.width <= PORTAL_NARROW_LAYOUT_MAX ? 48 : 192;
     state.bottomSectionHeight = Math.max(state.height * 1.05, bottomVideoHeight + state.height * 0.35 + bottomMargin);
-    const bottomVideoBottom = state.bottomSectionStart + state.height * 0.54 + bottomVideoHeight * 0.5;
+    const bottomVideoBottom = state.bottomSectionStart + state.bottomVideoCenterOffset + bottomVideoHeight * 0.5;
     syncCreativitySceneMetrics(bottomVideoBottom + creativityGap);
     state.totalHeight = state.creativitySectionStart + state.creativitySectionHeight + bottomMargin;
     return anchors;

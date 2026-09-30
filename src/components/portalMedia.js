@@ -131,16 +131,16 @@ export function createPortalMaterial(texture, noiseTexture, shaderState) {
       uniform float uFlowNoiseY;
       uniform float uZoom;
 
-      vec2 containUv(vec2 uv, vec2 canvasRes, vec2 imageRes) {
+      vec2 coverUv(vec2 uv, vec2 canvasRes, vec2 imageRes) {
         float canvasAspect = canvasRes.x / max(canvasRes.y, 0.0001);
         float imageAspect = imageRes.x / max(imageRes.y, 0.0001);
         vec2 outUv = uv;
         if (canvasAspect > imageAspect) {
-          float scaleX = imageAspect / canvasAspect;
-          outUv.x = (uv.x - 0.5) / max(scaleX, 0.0001) + 0.5;
+          float scaleY = imageAspect / canvasAspect;
+          outUv.y = (uv.y - 0.5) * scaleY + 0.5;
         } else {
-          float scaleY = canvasAspect / imageAspect;
-          outUv.y = (uv.y - 0.5) / max(scaleY, 0.0001) + 0.5;
+          float scaleX = canvasAspect / imageAspect;
+          outUv.x = (uv.x - 0.5) * scaleX + 0.5;
         }
         return outUv;
       }
@@ -157,7 +157,7 @@ export function createPortalMaterial(texture, noiseTexture, shaderState) {
         vec2 flow = vec2(noise.r * uFlowX, uFlowY + noise.g * uFlowNoiseY) * uIntensity * envelope;
         float zoom = 1.0 + uZoom * envelope;
         vec2 baseUv = (vUv - 0.5) / zoom + 0.5;
-        vec2 imageUv = containUv(baseUv - flow * (1.0 - progress), uCanvasResolution, uImageResolution);
+        vec2 imageUv = coverUv(baseUv - flow * (1.0 - progress), uCanvasResolution, uImageResolution);
         vec2 inBounds = step(vec2(0.0), imageUv) * step(imageUv, vec2(1.0));
         float imageMask = inBounds.x * inBounds.y;
         vec4 color = texture2D(uTexture, clamp(imageUv, vec2(0.0), vec2(1.0)));

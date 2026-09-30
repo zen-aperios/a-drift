@@ -65,7 +65,7 @@ export function createGlyphRenderer({ ctx, state, heroDismissEase, scrollCue, ge
     const warpFrequency = options.warpFrequency ?? state.warpFrequency;
     const basePhase = stamp.warpPhase + state.heroWarpPhase + (options.warpPhaseOffset ?? 0);
     const depth = options.depth ?? 0;
-    const depthScale = options.scale ?? (1 + depth * 0.08);
+    const depthScale = (options.scale ?? (1 + depth * 0.08)) * (stamp.scale ?? 1);
     const depthLift = depth * state.fontSize * 0.12;
     const documentY = stamp.y + state.height * 0.18;
     ctx.save();
@@ -95,7 +95,7 @@ export function createGlyphRenderer({ ctx, state, heroDismissEase, scrollCue, ge
     }
     ctx.save();
     const depth = options.depth ?? 0;
-    const depthScale = options.scale ?? (1 + depth * 0.08);
+    const depthScale = (options.scale ?? (1 + depth * 0.08)) * (stamp.scale ?? 1);
     const depthLift = depth * state.fontSize * 0.12;
     ctx.translate(stamp.x, documentY - depthLift);
     if (state.rotateEnabled) ctx.rotate(stamp.rotation);

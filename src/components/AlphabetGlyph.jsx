@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 
 const ALPHABET_DPR_CAP = 1.25;
 
-export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
+export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos, style }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -14,6 +14,9 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
     let width = 1;
     let height = 1;
     let dpr = Math.min(window.devicePixelRatio || 1, ALPHABET_DPR_CAP);
+    let hoverFrame = 0;
+    let hoverStartedAt = 0;
+    let isHovered = false;
 
     function getGlyphCanvas(fontSize, solid, color) {
       const key = `${letter}|${solid ? "fill" : "stroke"}|${fontSize}|${color}|${dpr}`;
@@ -57,13 +60,13 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
       return cached;
     }
 
-    function drawWarpedGlyph(fontSize, solid, slot, total, x, y, opacity, phaseOffset = 0) {
+    function drawWarpedGlyph(fontSize, solid, slot, total, x, y, opacity, phaseOffset = 0, motionPhase = 0) {
       const { canvas: glyphCanvas, width: glyphWidth, height: glyphHeight } = getGlyphCanvas(fontSize, solid, solid ? "#ffffff" : "#8b8b8b");
       const fade = total <= 1 ? 1 : 1 - slot / Math.max(total - 1, 1);
       const warpAmount = fontSize * (0.04 + warpChaos * 0.08);
       const warpFrequency = 0.72 + warpChaos * 1.35;
       const stripHeight = 1;
-      const phase = index * 0.17 + phaseOffset;
+      const phase = index * 0.17 + phaseOffset + motionPhase;
 
       ctx.save();
       ctx.translate(x, y);
@@ -82,7 +85,7 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
       ctx.restore();
     }
 
-    function draw() {
+    function draw(motionPhase = 0) {
       if (cancelled) return;
       const fontSize = Math.min(width * 0.608, height * 0.78, 196);
       ctx.clearRect(0, 0, width, height);
@@ -104,11 +107,19 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
           centerX + slot * ghostStepX,
           centerY + slot * ghostStepY,
           Math.pow(1 - normalized * 0.72, 1.35) * 0.78,
-          slot * 0.11
+          slot * 0.11,
+          motionPhase
         );
       }
 
-      drawWarpedGlyph(fontSize, true, 0, 1, centerX, centerY, 1, 0);
+      drawWarpedGlyph(fontSize, true, 0, 1, centerX, centerY, 1, 0, motionPhase);
+    }
+
+    function animateHover(now) {
+      if (cancelled || !isHovered) return;
+      const elapsed = now - hoverStartedAt;
+      draw(elapsed * 0.003);
+      hoverFrame = window.requestAnimationFrame(animateHover);
     }
 
     function resize() {
@@ -125,18 +136,35 @@ export function AlphabetGlyph({ letter, index, ghostDirection, warpChaos }) {
     }
 
     const observer = new ResizeObserver(resize);
+    const cell = canvas.closest(".alphabet-cell");
+    const handlePointerEnter = () => {
+      isHovered = true;
+      hoverStartedAt = performance.now();
+      window.cancelAnimationFrame(hoverFrame);
+      hoverFrame = window.requestAnimationFrame(animateHover);
+    };
+    const handlePointerLeave = () => {
+      isHovered = false;
+      window.cancelAnimationFrame(hoverFrame);
+      draw();
+    };
     observer.observe(canvas);
+    cell?.addEventListener("pointerenter", handlePointerEnter);
+    cell?.addEventListener("pointerleave", handlePointerLeave);
     resize();
 
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(hoverFrame);
+      cell?.removeEventListener("pointerenter", handlePointerEnter);
+      cell?.removeEventListener("pointerleave", handlePointerLeave);
       observer.disconnect();
       glyphCache.clear();
     };
   }, [letter, index, ghostDirection, warpChaos]);
 
   return (
-    <article className="alphabet-cell" style={{ "--glyph-index": index }}>
+    <article className="alphabet-cell" style={{ "--glyph-index": index, ...style }}>
       <canvas ref={canvasRef} className="alphabet-cell__canvas" aria-label={letter} />
       <span className="alphabet-cell__index" aria-hidden="true">
         {String(index + 1).padStart(2, "0")}

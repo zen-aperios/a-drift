@@ -70,7 +70,7 @@ export function createMainTraceRenderer({
         drawStamp(state.ghosts[i], false, i, Math.max(ghostCount, 1));
       }
       const heroWarpOptions = getHeroWarpOptions();
-      if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, 1, 0, heroWarpOptions);
+      if (state.anchors[0]) drawAnimatedGhostStack({ ...state.anchors[0], scale: 1 }, topGhostOffsets, 1, 0, heroWarpOptions);
       state.heroChars.forEach((stamp) => drawAnimatedGhostStack(stamp, topGhostOffsets, 1, 0, heroWarpOptions));
       drawScrollCue(1);
       return false;
@@ -81,7 +81,7 @@ export function createMainTraceRenderer({
       const heroReturnOpacity = 1 - heroDismissEase(state.heroDismiss);
       if (heroReturnOpacity > 0.001) {
         const heroWarpOptions = getHeroWarpOptions();
-        if (state.anchors[0]) drawAnimatedGhostStack(state.anchors[0], topGhostOffsets, heroReturnOpacity, 0, heroWarpOptions);
+        if (state.anchors[0]) drawAnimatedGhostStack({ ...state.anchors[0], scale: 1 }, topGhostOffsets, heroReturnOpacity, 0, heroWarpOptions);
         drawScrollCue(heroReturnOpacity);
       }
       const heroWordEased = heroDismissEase(state.heroDismiss);

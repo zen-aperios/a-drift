@@ -78,17 +78,11 @@ export function createPortalRuntimeController({ state, gsap }) {
   }
 
   function getPortalVisibleFrame(frame, item) {
-    const imageAspect = Math.max(0.1, item?.aspect || 1);
-    const frameAspect = frame.width / Math.max(1, frame.height);
-    let width = frame.width;
-    let height = frame.height;
-    if (frameAspect > imageAspect) width = height * imageAspect;
-    else height = width / imageAspect;
     return {
       x: frame.x,
       y: frame.y,
-      width: Math.max(1, width),
-      height: Math.max(1, height),
+      width: Math.max(1, frame.width),
+      height: Math.max(1, frame.height),
     };
   }
 

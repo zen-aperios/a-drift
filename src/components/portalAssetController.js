@@ -5,7 +5,12 @@ import {
   createPortalMesh,
   loadPortalImageUrls,
 } from "./portalMedia.js";
-import { BOTTOM_VIDEO_URL, INITIAL_PORTAL_IMAGE_LAYOUT } from "./traceConfig.js";
+import {
+  BOTTOM_VIDEO_URL,
+  INITIAL_PORTAL_IMAGE_LAYOUT,
+  PORTAL_NARROW_LAYOUT_MAX,
+  TRACE_NARROW_LAYOUT_MAX,
+} from "./traceConfig.js";
 
 // Owns portal image/video loading, placement rebuilding, and media disposal.
 export function createPortalAssetController({
@@ -42,29 +47,51 @@ export function createPortalAssetController({
     lastLayoutKey = layoutKey;
     const placedFrames = [];
     state.portalImages.forEach((item, index) => {
+      const mobile = state.width <= PORTAL_NARROW_LAYOUT_MAX;
+      const medium = !mobile && state.width <= TRACE_NARROW_LAYOUT_MAX;
+      item.layoutHidden = true;
       const manual = item.manualPlacement;
-      const span = manual?.span || (index === 0 ? { columns: 1, rows: 1 } : { columns: 2, rows: 2 });
+      const baseSpan = manual?.span || (index === 0 ? { columns: 1, rows: 1 } : { columns: 2, rows: 2 });
+      const span = mobile
+        ? { columns: 1, rows: Math.min(3, manual?.span?.rows || 3) }
+        : medium
+          ? { ...baseSpan, columns: 5 }
+          : baseSpan;
       const preferredCell = index === 0
         ? cells.find((candidate) => candidate.gapIndex === 0 && candidate.column === 2 && candidate.row === 2)
         : cells.find((candidate) => candidate.gapIndex === 1 + Math.floor((index - 1) / 2) && candidate.column === [0, 2, 4, 1, 3][index % 5] && candidate.row === [0, 2, 1, 3][index % 4]);
-      const originCell = manual?.cell
+      const originCell = !mobile && manual?.cell
         ? cells.find((candidate) => candidate.gapIndex === manual.cell.gapIndex && candidate.column === manual.cell.column && candidate.row === manual.cell.row)
         : preferredCell || cells[index % cells.length];
       const preferredBlock = originCell ? getPlacementBlock(originCell, span) : null;
       const preferredFrame = preferredBlock ? getPortalFrameForBlock(preferredBlock, item, manual?.stretched) : null;
-      const block = preferredBlock && preferredFrame && !placedFrames.some((placedFrame) => framesOverlap(preferredFrame, placedFrame))
-        ? preferredBlock
-        : getNearestAvailablePlacementBlock(preferredBlock?.cx || state.width * 0.5, preferredBlock?.cy || state.height * 0.5, span, item, placedFrames);
+      const mobileCells = mobile
+        ? cells.filter((cell) => index === 0 ? cell.gapIndex === 0 : cell.gapIndex > 0)
+        : [];
+      const mobileBlock = mobile
+        ? mobileCells.find((cell) => {
+            const candidate = getPlacementBlock(cell, span);
+            if (!candidate) return false;
+            const frame = getPortalFrameForBlock(candidate, item, false, true);
+            return !placedFrames.some((placedFrame) => framesOverlap(frame, placedFrame));
+          })
+        : null;
+      const block = mobile
+        ? (mobileBlock ? getPlacementBlock(mobileBlock, span) : null)
+        : preferredBlock && preferredFrame && !placedFrames.some((placedFrame) => framesOverlap(preferredFrame, placedFrame))
+          ? preferredBlock
+          : getNearestAvailablePlacementBlock(preferredBlock?.cx || state.width * 0.5, preferredBlock?.cy || state.height * 0.5, span, item, placedFrames);
       if (!block) return;
-      const frame = getPortalFrameForBlock(block, item, manual?.stretched);
+      const frame = getPortalFrameForBlock(block, item, !mobile && manual?.stretched, mobile);
+      item.layoutHidden = false;
       item.width = frame.width;
       item.height = frame.height;
-      item.x = block.cx;
-      item.y = block.cy - state.height * 0.18;
+      item.x = frame.x;
+      item.y = frame.y - state.height * 0.18;
       item.layoutBlock = block;
       item.layoutFrame = frame;
       placedFrames.push(frame);
-      if (manual) {
+      if (manual && !mobile) {
         item.manualPlacement.x = item.x;
         item.manualPlacement.y = item.y;
         item.manualPlacement.span = span;
@@ -78,39 +105,39 @@ export function createPortalAssetController({
     const sources = await loadPortalImageUrls(10);
     if (cancelled()) return;
     state.portalImages = sources.map((src, index) => {
-      const initialPlacement = INITIAL_PORTAL_IMAGE_LAYOUT[index];
-      const item = {
-        src, index, texture: null, mesh: null, material: null, aspect: 0.76,
-        layer: initialPlacement?.layer || "back", x: state.width * 0.5, y: 0, width: 220, height: 290,
-        reveal: { progress: 0, target: 0 }, domStyle: {}, useQuickReveal: useDomPortalImages,
-      };
-      if (initialPlacement) {
-        item.manualPlacement = {
-          x: item.x, y: item.y, layer: item.layer, span: { ...initialPlacement.span },
-          stretched: Boolean(initialPlacement.stretched), cell: { ...initialPlacement.cell },
+        const initialPlacement = INITIAL_PORTAL_IMAGE_LAYOUT[index];
+        const item = {
+          src, index, texture: null, mesh: null, material: null, aspect: 0.76,
+          layer: initialPlacement?.layer || "back", x: state.width * 0.5, y: 0, width: 220, height: 290,
+          reveal: { progress: 0, target: 0 }, domStyle: {}, useQuickReveal: useDomPortalImages,
         };
-      }
-      const image = new Image();
-      image.decoding = "async";
-      image.onload = () => {
-        if (cancelled()) return;
-        item.aspect = (image.naturalWidth || image.width || 1) / Math.max(1, image.naturalHeight || image.height || 1);
-        if (useDomPortalImages) {
-          image.className = "trace-dom-media";
-          image.alt = "";
-          image.draggable = false;
-          item.domNode = image;
-          (item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer).appendChild(image);
-        } else {
-          item.texture = createImageCanvasTexture(image, mediaBackRenderer.capabilities?.maxTextureSize);
-          item.material = createPortalMaterial(item.texture, noiseTexture, state);
-          item.mesh = createPortalMesh(item.material);
-          mediaBackScene.add(item.mesh);
+        if (initialPlacement) {
+          item.manualPlacement = {
+            x: item.x, y: item.y, layer: item.layer, span: { ...initialPlacement.span },
+            stretched: Boolean(initialPlacement.stretched), cell: { ...initialPlacement.cell },
+          };
         }
-        buildPortalLayout();
-      };
-      image.src = src;
-      return item;
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = () => {
+          if (cancelled()) return;
+          item.aspect = (image.naturalWidth || image.width || 1) / Math.max(1, image.naturalHeight || image.height || 1);
+          if (useDomPortalImages) {
+            image.className = "trace-dom-media";
+            image.alt = "";
+            image.draggable = false;
+            item.domNode = image;
+            (item.layer === "front" ? mediaDomFrontLayer : mediaDomBackLayer).appendChild(image);
+          } else {
+            item.texture = createImageCanvasTexture(image, mediaBackRenderer.capabilities?.maxTextureSize);
+            item.material = createPortalMaterial(item.texture, noiseTexture, state);
+            item.mesh = createPortalMesh(item.material);
+            mediaBackScene.add(item.mesh);
+          }
+          buildPortalLayout();
+        };
+        image.src = src;
+        return item;
     });
     buildPortalLayout();
   }

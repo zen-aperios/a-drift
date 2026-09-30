@@ -1,7 +1,7 @@
 # A Drift Proposed Architecture
 
 Date: 2026-09-30
-Status: Proposed
+Status: In progress
 
 ## Vision
 
@@ -665,58 +665,46 @@ At every captured frame before the React loader completes, one of these must cov
 
 There must never be a frame where both are absent before application reveal.
 
-## Migration Sequence
+## Remaining Migration Sequence
 
-### Stage 1: startup shell
+### Stage 1: component extraction
 
-- Introduce `StartupGate`.
-- Add the painted-loader handshake.
-- Add critical range reset.
-- Preserve the existing loader markup and animation.
-
-### Stage 2: component extraction
-
-- Extract loader.
-- Extract footer.
-- Extract sequencer.
-- Extract hero top bar.
+- Move the imperative trace setup into a dedicated runtime hook after documenting its inputs and cleanup.
 - Keep DOM and CSS selectors unchanged.
 
-### Stage 3: CSS ownership
+### Stage 2: CSS ownership
 
 - Create critical CSS.
 - Move feature blocks without altering declarations.
 - Capture computed styles.
 - Consolidate duplicate rules only after ownership is clear.
 
-### Stage 4: audio facade
+### Stage 3: audio facade
 
 - Move pattern data.
 - Move sample registry.
 - Move track state and effects.
 - Preserve the current public engine API until the new facade is complete.
 
-### Stage 5: deferred systems
+### Stage 4: deferred systems
 
 - Lazy-load footer animation data.
 - Split portal/Three.js runtime.
 - Defer below-fold media decoding.
 
-### Stage 6: rendering optimization
+### Stage 5: rendering optimization
 
 - Move full-document canvases to viewport windows one at a time.
 - Preserve current world coordinates through translation adapters.
 
 ## Completion Criteria
 
-The architecture migration is complete when:
+The remaining architecture migration is complete when:
 
-- No native controls flash during hard load or hot update.
 - `TraceDream.jsx` primarily composes features.
 - The audio engine exposes one documented facade.
 - Every global listener and frame loop has a clear owner.
 - Footer Lottie JSON is absent from the initial chunk.
 - Three.js can be separated from the earliest startup path.
-- Built CSS no longer contains the giant encoded dust SVG.
 - Visual captures match desktop, tablet, and mobile baselines.
 - Existing sequencer patterns, autoplay transitions, and track settings remain unchanged.

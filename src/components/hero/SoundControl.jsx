@@ -1,16 +1,18 @@
 import React from "react";
 
 export function SoundControl({ soundEnabled, onToggleSound }) {
+  const actionLabel = soundEnabled ? "Mute" : "Unmute";
+
   return (
     <div className="rhodes-audio-control">
       <button
         className="rhodes-audio-button"
         type="button"
-        aria-label="Play Rhodes sound"
-        title="Play Rhodes sound"
+        aria-label={actionLabel}
+        title={actionLabel}
         onClick={onToggleSound}
       >
-        {soundEnabled ? "Sound on" : "Sound off"}
+        {actionLabel}
       </button>
     </div>
   );

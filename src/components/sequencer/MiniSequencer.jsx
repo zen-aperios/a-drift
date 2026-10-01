@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { MiniTrackDropdown, miniInstrumentLabel } from "./MiniTrackDropdown.jsx";
+import {
+  getSequencerPage,
+  getSequencerPageSteps,
+  SEQUENCER_PAGE_SIZE,
+  shouldFollowSequencerStep,
+} from "./sequencerViewState.js";
 
 export function MiniSequencer({
   engine,
@@ -30,13 +36,15 @@ export function MiniSequencer({
     if (!panelRef.current) return undefined;
     const panel = panelRef.current;
     gsap.killTweensOf(panel);
-    gsap.set(panel, { xPercent: -50 });
+    gsap.set(panel, { x: 0, xPercent: -50, force3D: false });
 
     const timeline = gsap.timeline();
     timeline.to(panel, {
+      y: 0,
       yPercent: isOpen ? 0 : 100,
       duration: 0.9,
       ease: "power4.out",
+      force3D: false,
     }, 0);
     timeline.to(panel, {
       opacity: isOpen ? 1 : 0,
@@ -89,8 +97,8 @@ export function MiniSequencer({
   }, [instrumentOptions, selectedTrack, tracks.join("|")]);
 
   useEffect(() => {
-    if (activeStep >= 0 && visibleTrack && manualPageOverrides[visibleTrack] === undefined) {
-      setTrackPages((pages) => ({ ...pages, [visibleTrack]: Math.floor(activeStep / 16) }));
+    if (activeStep >= 0 && visibleTrack && shouldFollowSequencerStep(manualPageOverrides, visibleTrack)) {
+      setTrackPages((pages) => ({ ...pages, [visibleTrack]: getSequencerPage(activeStep) }));
     }
   }, [activeStep, manualPageOverrides, visibleTrack]);
 
@@ -116,8 +124,8 @@ export function MiniSequencer({
   }, [engine, visibleTrack]);
 
   const stepPage = trackPages[visibleTrack] ?? 0;
-  const pageStart = stepPage * 16;
-  const visibleSteps = pattern.slice(pageStart, pageStart + 16);
+  const pageStart = stepPage * SEQUENCER_PAGE_SIZE;
+  const visibleSteps = getSequencerPageSteps(pattern, stepPage);
 
   const toggleStep = (step, isAssigned) => {
     window.clearTimeout(clickTimerRef.current);
@@ -137,7 +145,7 @@ export function MiniSequencer({
     setFlashingStep(step);
     window.clearTimeout(flashTimerRef.current);
     flashTimerRef.current = window.setTimeout(() => setFlashingStep(null), 700);
-    setTrackPages((pages) => ({ ...pages, [visibleTrack]: Math.floor(step / 16) }));
+    setTrackPages((pages) => ({ ...pages, [visibleTrack]: getSequencerPage(step) }));
     setNotePitch(engine?.getSequencerStepPitch?.(step, visibleTrack) ?? 0);
   };
 
@@ -187,7 +195,6 @@ export function MiniSequencer({
         >
           GRID
         </button>
-        <span className="mini-sequencer__header-divider" aria-hidden="true" />
         <span className="mini-sequencer__bpm" aria-label="Current tempo">
           <span className="mini-sequencer__bpm-number">120</span>
           <span className="mini-sequencer__bpm-unit">BPM</span>

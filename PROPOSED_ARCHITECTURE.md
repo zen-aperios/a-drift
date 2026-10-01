@@ -1,6 +1,6 @@
 # A Drift Proposed Architecture
 
-Date: 2026-09-30
+Date: 2026-10-01
 Status: In progress
 
 ## Vision
@@ -637,6 +637,10 @@ The loader must always have a timeout-based escape route if application initiali
 
 ## Testing Shape
 
+The dependency-free Node suite currently covers sequencer paging, pattern visibility,
+track settings, transport timing, and transport cancellation in `test/sequencer.test.js`.
+Browser coverage can grow into this structure:
+
 ```text
 tests/
   startup/
@@ -679,20 +683,13 @@ There must never be a frame where both are absent before application reveal.
 - Capture computed styles.
 - Consolidate duplicate rules only after ownership is clear.
 
-### Stage 3: audio facade
-
-- Move pattern data.
-- Move sample registry.
-- Move track state and effects.
-- Preserve the current public engine API until the new facade is complete.
-
-### Stage 4: deferred systems
+### Stage 3: deferred systems
 
 - Lazy-load footer animation data.
 - Split portal/Three.js runtime.
 - Defer below-fold media decoding.
 
-### Stage 5: rendering optimization
+### Stage 4: rendering optimization
 
 - Move full-document canvases to viewport windows one at a time.
 - Preserve current world coordinates through translation adapters.

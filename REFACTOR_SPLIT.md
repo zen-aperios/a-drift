@@ -1,6 +1,6 @@
 # A Drift Remaining Refactor Plan
 
-Date: 2026-09-30
+Date: 2026-10-01
 
 ## Purpose
 
@@ -11,7 +11,7 @@ This document tracks only unfinished cleanup, architecture, and performance work
 | Area | Current size or behavior |
 | --- | --- |
 | `src/components/TraceDream.jsx` | Trace composition and page orchestration |
-| `src/components/rhodesChordEngine.js` | 1,337 lines, about 52 KB source |
+| `src/components/rhodesChordEngine.js` | Audio facade and sequencer state |
 | `src/styles.css` | 1,848 lines, about 37 KB source |
 | Built CSS | About 30 KB |
 | Main JavaScript chunk | About 1.33 MB minified, about 272 KB gzip |
@@ -61,24 +61,6 @@ The editor participates in trace configuration and layout. Put it behind an expl
 
 Move the large imperative setup effect from `TraceDream.jsx` into `useTraceRuntime.js` only after its complete input and cleanup contract is documented. Keep React responsible for markup and controllers responsible for canvas, WebGL, scroll, and animation work.
 
-## Audio Engine Split
-
-Split `rhodesChordEngine.js` behind its existing public API in this order:
-
-1. Move constants and default/autoplay pattern data.
-2. Move sample manifests and lookup helpers.
-3. Move track state and effects graph.
-4. Move synthesis and sample voices.
-5. Move transport and scheduling last.
-
-Required behavior checks:
-
-- Startup and autoplay patterns remain distinct.
-- Manual sequencer pages still override autoplay page movement.
-- Instrument previews remain gain-limited.
-- Sound can be enabled before or after scrolling.
-- Per-track level, reverb, decay, and pitch values remain unchanged.
-
 ## CSS Ownership
 
 Split styles one feature at a time:
@@ -120,6 +102,7 @@ Run after every batch:
 
 ```bash
 git diff --check
+npm test
 npm run build
 ```
 
@@ -136,7 +119,5 @@ Browser checks:
 
 ## Recommended Next Batch
 
-1. Move audio pattern constants into dedicated modules.
-2. Add focused tests for sequencer paging, pattern transitions, and track settings.
-3. Lazy-load footer animation data.
-4. Document the trace runtime inputs and cleanup contract.
+1. Lazy-load footer animation data.
+2. Document the trace runtime inputs and cleanup contract.

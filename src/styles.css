@@ -393,14 +393,14 @@ html.lenis body {
   height: auto;
 }
 
-.site-footer__grid span {
+.site-footer__grid > span {
   min-width: 0;
   min-height: 0;
   padding: 0;
   font-weight: 500;
 }
 
-.site-footer__grid span:nth-child(n + 4) {
+.site-footer__grid > span:nth-child(n + 4) {
   justify-content: space-between;
   padding-top: 0;
   padding-bottom: 0;
@@ -1293,15 +1293,6 @@ html.lenis body {
   line-height: 1;
 }
 
-.mini-sequencer__header-divider {
-  display: block;
-  width: 1px;
-  height: 16px;
-  align-self: center;
-  margin-left: 0;
-  background: rgba(0, 0, 0, 0.36);
-}
-
 .mini-sequencer .mini-sequencer__header-page {
   color: rgba(0, 0, 0, 0.52);
   font-size: 9px;
@@ -1323,6 +1314,12 @@ html.lenis body {
   letter-spacing: 0.03em;
   line-height: 1;
   cursor: pointer;
+}
+
+.mini-sequencer .mini-sequencer__image-grid,
+.mini-sequencer .mini-sequencer__bpm {
+  padding-left: 8px;
+  border-left: 1px solid rgba(0, 0, 0, 0.36);
 }
 
 .mini-sequencer .mini-sequencer__settings:hover,

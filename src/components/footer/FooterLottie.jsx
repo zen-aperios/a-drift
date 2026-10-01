@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import footerAnimation from "../../../runman01.json";
 
-export function FooterLottie({ animationData = footerAnimation, lazy = false }) {
+export function FooterLottie({
+  animationData = footerAnimation,
+  loadAnimationData = null,
+  lazy = false,
+}) {
   const containerRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(!lazy);
@@ -34,23 +38,28 @@ export function FooterLottie({ animationData = footerAnimation, lazy = false }) 
     let disposed = false;
     let animation;
 
-    import("lottie-web/build/player/lottie_light").then(({ default: lottie }) => {
+    Promise.all([
+      import("lottie-web/build/player/lottie_light"),
+      loadAnimationData ? loadAnimationData() : Promise.resolve(animationData),
+    ]).then(([{ default: lottie }, loadedAnimationData]) => {
       if (disposed || !containerRef.current) return;
       animation = lottie.loadAnimation({
         container: containerRef.current,
         renderer: "svg",
         loop: true,
         autoplay: true,
-        animationData,
+        animationData: loadedAnimationData,
       });
       animation.addEventListener("DOMLoaded", () => setReady(true));
+    }).catch(() => {
+      if (!disposed) setReady(false);
     });
 
     return () => {
       disposed = true;
       animation?.destroy();
     };
-  }, [animationData, shouldLoad]);
+  }, [animationData, loadAnimationData, shouldLoad]);
 
   return (
     <div

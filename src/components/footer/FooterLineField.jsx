@@ -1,9 +1,11 @@
 import React, { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import footerContentAnimation from "../../../runman02.json";
 import aperiosLogo from "../../../logo.svg";
 import { AlphabetGlyph } from "../AlphabetGlyph.jsx";
 import { FooterLottie } from "./FooterLottie.jsx";
+
+const loadFooterContentAnimation = () => import("../../../runman02.json")
+  .then(({ default: animationData }) => animationData);
 
 export function FooterLineField() {
   const fieldRef = useRef(null);
@@ -79,7 +81,7 @@ export function FooterLineField() {
       <div className="site-footer__idea-row">
         <div className="site-footer__idea-column site-footer__idea-primary">
           <div className="site-footer__collaboration">
-            <FooterLottie animationData={footerContentAnimation} lazy />
+            <FooterLottie loadAnimationData={loadFooterContentAnimation} lazy />
             <div className="site-footer__collaboration-x" aria-hidden="true">
               <div />
               <div />

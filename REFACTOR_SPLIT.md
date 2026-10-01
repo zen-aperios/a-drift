@@ -14,8 +14,9 @@ This document tracks only unfinished cleanup, architecture, and performance work
 | `src/components/rhodesChordEngine.js` | Audio facade and sequencer state |
 | `src/styles.css` | 1,848 lines, about 37 KB source |
 | Built CSS | About 30 KB |
-| Main JavaScript chunk | About 1.33 MB minified, about 272 KB gzip |
+| Main JavaScript chunk | About 1.09 MB minified, about 261 KB gzip |
 | Lottie player chunk | About 169 KB minified, about 48 KB gzip |
+| Footer animation data chunk | About 244 KB minified, about 12 KB gzip; loaded near viewport |
 | Bottom video | About 5.7 MB |
 
 The production build passes. The main remaining build warning is the initial JavaScript chunk exceeding 500 KB.
@@ -87,7 +88,6 @@ For each feature:
 
 ## Runtime Code Splitting
 
-- Lazy-load the footer Lottie JSON together with its player near the viewport.
 - Evaluate loading Three.js and the portal runtime after the startup cover is secure.
 - Defer below-fold media decoding without delaying the first reveal.
 - Measure each boundary to avoid replacing startup savings with interaction hitches.
@@ -119,5 +119,4 @@ Browser checks:
 
 ## Recommended Next Batch
 
-1. Lazy-load footer animation data.
-2. Document the trace runtime inputs and cleanup contract.
+1. Document the trace runtime inputs and cleanup contract.

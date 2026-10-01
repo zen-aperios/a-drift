@@ -685,7 +685,6 @@ There must never be a frame where both are absent before application reveal.
 
 ### Stage 3: deferred systems
 
-- Lazy-load footer animation data.
 - Split portal/Three.js runtime.
 - Defer below-fold media decoding.
 
@@ -701,7 +700,6 @@ The remaining architecture migration is complete when:
 - `TraceDream.jsx` primarily composes features.
 - The audio engine exposes one documented facade.
 - Every global listener and frame loop has a clear owner.
-- Footer Lottie JSON is absent from the initial chunk.
 - Three.js can be separated from the earliest startup path.
 - Visual captures match desktop, tablet, and mobile baselines.
 - Existing sequencer patterns, autoplay transitions, and track settings remain unchanged.

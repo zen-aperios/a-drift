@@ -1,5 +1,5 @@
 export const LETTERS = "APERIOS".split("");
-export const BOTTOM_VIDEO_URL = new URL("../../logofolio-web.mp4", import.meta.url).href;
+export const BOTTOM_VIDEO_URL = new URL("../assets/video/logofolio-web.mp4", import.meta.url).href;
 export const PLACEMENT_GRID_COLUMNS = 6;
 export const PLACEMENT_GRID_ROWS = 5;
 export const TRACE_NARROW_LAYOUT_MAX = 820;

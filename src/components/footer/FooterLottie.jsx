@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import footerAnimation from "../../../runman01.json";
+import footerAnimation from "../../assets/animation/runman01.json";
 
 export function FooterLottie({
   animationData = footerAnimation,

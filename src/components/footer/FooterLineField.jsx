@@ -1,10 +1,10 @@
 import React, { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import aperiosLogo from "../../../logo.svg";
+import aperiosLogo from "../../assets/brand/logo.svg";
 import { AlphabetGlyph } from "../AlphabetGlyph.jsx";
 import { FooterLottie } from "./FooterLottie.jsx";
 
-const loadFooterContentAnimation = () => import("../../../runman02.json")
+const loadFooterContentAnimation = () => import("../../assets/animation/runman02.json")
   .then(({ default: animationData }) => animationData);
 
 export function FooterLineField() {

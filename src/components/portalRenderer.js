@@ -1,7 +1,7 @@
 import { clamp } from "./traceMath.js";
 
 // Owns portal image placement and media-layer output. Reveal targets and
-// layout values are supplied by TraceDream to preserve the current behavior.
+// Layout values are supplied by TraceDrift to preserve the current behavior.
 export function createPortalRenderer({
   state,
   heroDismissEase,

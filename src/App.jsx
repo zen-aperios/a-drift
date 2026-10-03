@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import gsap from "gsap";
 import Lenis from "lenis";
-import TraceDream from "./components/TraceDream.jsx";
+import TraceDrift from "./components/TraceDrift.jsx";
 import { PageLoader } from "./components/loader/PageLoader.jsx";
 import { NoiseLayer } from "./components/NoiseLayer.jsx";
 
@@ -28,8 +28,8 @@ export default function App() {
     <>
       <PageLoader />
       <NoiseLayer />
-      <main className="dream-app dream-app--trace">
-        <TraceDream />
+      <main className="drift-app drift-app--trace">
+        <TraceDrift />
       </main>
     </>
   );

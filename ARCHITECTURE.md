@@ -23,7 +23,7 @@ index.html boot cover
   -> src/main.jsx waits for CSS and the React loader to paint
   -> src/App.jsx starts the shared Lenis/GSAP clock
   -> PageLoader covers application startup
-  -> TraceDream mounts the visual and audio composition
+  -> TraceDrift mounts the visual and audio composition
   -> trace lifecycle starts layout, input, asset, and render controllers
   -> footer animation code and data load only near the viewport
 ```
@@ -51,7 +51,7 @@ src/
     hero/            top bar and sound control
     loader/          startup loader
     sequencer/       sequencer panel, track dropdown, view-state helpers
-    TraceDream.jsx   composition markup and runtime assembly
+    TraceDrift.jsx   composition markup and runtime assembly
     *Controller.js   imperative feature and lifecycle controllers
     *Renderer.js     canvas and WebGL rendering units
   App.jsx            global smooth-scroll clock and top-level composition
@@ -72,13 +72,13 @@ so smooth scrolling does not introduce a second independent animation loop.
 
 1. `PageLoader` for startup coverage.
 2. `NoiseLayer` as a fixed, pointer-transparent texture.
-3. `TraceDream` as the interactive composition.
+3. `TraceDrift` as the interactive composition.
 
 The Lenis instance and GSAP ticker callback are both cleaned up when `App` unmounts.
 
 ## Trace Composition
 
-`TraceDream.jsx` owns the stable DOM surfaces, React interface state, and assembly of
+`TraceDrift.jsx` owns the stable DOM surfaces, React interface state, and assembly of
 the imperative runtime. Its React state is limited to visible controls such as sound,
 sequencer visibility, instrument options, and the placement grid.
 
@@ -103,7 +103,7 @@ portal media while the default path renders portal planes through Three.js.
 
 ### Controller ownership
 
-Controllers are small factories composed by `TraceDream`:
+Controllers are small factories composed by `TraceDrift`:
 
 - `traceCompositionController` coordinates layout-related callbacks.
 - `traceLifecycleController` owns startup, browser listeners, resize, and cleanup.
@@ -145,7 +145,7 @@ type composer. Glyph canvases are cached after generation.
 `FooterTypeComposer` accepts a single line of user input and renders the generated
 letter treatment within its responsive wrapper. The footer's collaboration lockup,
 directories, line field, clock, and sequencer trigger are rendered by the footer
-components and `TraceDream` footer markup.
+components and `TraceDrift` footer markup.
 
 ## Sequencer and Audio
 
@@ -153,7 +153,7 @@ components and `TraceDream` footer markup.
 track, page, settings visibility, step editing, and track replacement. It communicates
 with the engine facade rather than manipulating Web Audio nodes directly.
 
-`rhodesChordEngine.js` is the public audio facade used by `TraceDream` and the
+`rhodesChordEngine.js` is the public audio facade used by `TraceDrift` and the
 sequencer. Internally it composes:
 
 - `effectsGraph.js` for per-track processing and reverb routing;

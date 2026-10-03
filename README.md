@@ -92,7 +92,7 @@ git diff --check
 |   |   |-- hero/            Top bar and sound control
 |   |   |-- loader/          Three-second React loader
 |   |   |-- sequencer/       Sequencer interface and track selection
-|   |   |-- TraceDream.jsx   Composition markup and runtime assembly
+|   |   |-- TraceDrift.jsx   Composition markup and runtime assembly
 |   |   `-- *Controller.js   Imperative trace, portal, layout, and lifecycle units
 |   |-- App.jsx              Shared Lenis/GSAP clock and top-level layers
 |   |-- main.jsx             Boot-cover handoff and React mount
@@ -108,7 +108,7 @@ the static boot cover in `index.html`. This prevents native sliders or unstyled 
 from flashing during startup.
 
 `src/App.jsx` owns the shared Lenis/GSAP frame clock and renders the loader, fixed noise
-layer, and `TraceDream` composition. `TraceDream.jsx` provides the stable DOM and canvas
+layer, and `TraceDrift` composition. `TraceDrift.jsx` provides the stable DOM and canvas
 surfaces, then composes dedicated controllers for layout, scrolling, lifecycle,
 rendering, portal assets, editing, and the final video section.
 

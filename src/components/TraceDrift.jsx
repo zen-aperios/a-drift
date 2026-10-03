@@ -45,7 +45,7 @@ import {
 
 const TRACE_DPR_CAP = 1.25;
 
-export default function TraceDream() {
+export default function TraceDrift() {
   const canvasRef = useRef(null);
   const rhodesEngineRef = useRef(null);
   const soundEnabledRef = useRef(false);

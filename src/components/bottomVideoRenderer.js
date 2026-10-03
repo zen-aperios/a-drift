@@ -1,7 +1,7 @@
 import { clamp } from "./traceMath.js";
 
 // Owns bottom-video reveal/playback output. Animation state and scroll geometry
-// stay in TraceDream so the video keeps the existing timing contract.
+// Stay in TraceDrift so the video keeps the existing timing contract.
 export function createBottomVideoRenderer({
   ctx,
   state,

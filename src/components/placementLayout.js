@@ -1,5 +1,5 @@
 import { clamp } from "./traceMath.js";
-import { PORTAL_NARROW_LAYOUT_MAX } from "./traceConfig.js";
+import { PORTAL_NARROW_LAYOUT_MAX, TRACE_NARROW_LAYOUT_MAX } from "./traceConfig.js";
 
 // Owns placement-grid geometry, spans, and collision checks for portal media.
 // It has no DOM or rendering work; callers provide the current state snapshot.
@@ -91,14 +91,18 @@ export function createPlacementLayout({ state, columns, rows, getPortalItemDocum
 
   function getPortalFrameForBlock(block, item = null, stretched = false, autoHeight = false) {
     const aspect = Math.max(0.1, item?.aspect || 1);
-    const width = stretched || autoHeight
+    const responsive = state.width <= TRACE_NARROW_LAYOUT_MAX;
+    const topAligned = autoHeight || state.width <= PORTAL_NARROW_LAYOUT_MAX;
+    const width = responsive
+      ? block.width
+      : stretched || autoHeight
       ? block.width
       : Math.min(block.width, block.height * aspect);
-    const height = autoHeight ? width / aspect : stretched ? block.height : width / aspect;
+    const height = responsive || autoHeight ? width / aspect : stretched ? block.height : width / aspect;
     const x = block.cx;
-    const y = autoHeight ? block.y1 + height * 0.5 : block.cy;
+    const y = topAligned ? block.y1 + height * 0.5 : block.cy;
     return {
-      x, y, width: Math.max(40, width), height: Math.max(40, height),
+      x, y, width: responsive ? width : Math.max(40, width), height: responsive ? height : Math.max(40, height),
       left: x - width * 0.5, right: x + width * 0.5,
       top: y - height * 0.5, bottom: y + height * 0.5,
     };

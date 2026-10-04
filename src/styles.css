@@ -259,7 +259,8 @@ html.lenis body {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
   gap: clamp(24px, 5vw, 72px);
-  width: min(100%, 1080px);
+  width: 95%;
+  max-width: 1120px;
   margin: 0 auto clamp(28px, 5vh, 56px);
 }
 
@@ -318,10 +319,10 @@ html.lenis body {
 
 .alphabet-generator__grid {
   display: grid;
-  grid-template-columns: repeat(6, 180px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(164px, 25%)), 1fr));
   justify-content: start;
-  width: fit-content;
-  max-width: 1080px;
+  width: 95%;
+  max-width: 1120px;
   min-width: 0;
   margin-inline: auto;
   overflow: hidden;
@@ -342,13 +343,11 @@ html.lenis body {
   background: #000000;
 }
 
-.alphabet-generator__grid > .alphabet-cell:nth-child(6n),
-.alphabet-generator__grid > .alphabet-cell:last-child {
-  border-right: 0;
-}
-
-.alphabet-generator__grid > .alphabet-cell:nth-last-child(-n + 6) {
-  border-bottom: 0;
+.alphabet-generator__grid > .alphabet-cell {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: 1px 0 rgba(255, 255, 255, 0.42), 0 1px rgba(255, 255, 255, 0.42);
 }
 
 .alphabet-cell__canvas {
@@ -1673,8 +1672,7 @@ html.lenis body {
   }
 
   .alphabet-generator__grid {
-    grid-template-columns: repeat(4, 104px);
-    width: fit-content;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, max(104px, 25%)), 1fr));
   }
 
   .alphabet-cell {
@@ -1683,22 +1681,6 @@ html.lenis body {
     min-height: 104px;
   }
 
-  .alphabet-generator__grid > .alphabet-cell:nth-child(6n) {
-    border-right: 1px solid rgba(255, 255, 255, 0.42);
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-child(4n),
-  .alphabet-generator__grid > .alphabet-cell:last-child {
-    border-right: 0;
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-last-child(-n + 6) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.42);
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-last-child(-n + 4) {
-    border-bottom: 0;
-  }
 
   .mini-sequencer {
     left: 50%;
@@ -1819,27 +1801,4 @@ html.lenis body {
     text-align: left;
   }
 
-}
-
-@media (max-width: 439px) {
-  .alphabet-generator__grid {
-    grid-template-columns: repeat(3, 104px);
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-child(4n) {
-    border-right: 1px solid rgba(255, 255, 255, 0.42);
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-child(3n),
-  .alphabet-generator__grid > .alphabet-cell:last-child {
-    border-right: 0;
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-last-child(-n + 4) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.42);
-  }
-
-  .alphabet-generator__grid > .alphabet-cell:nth-last-child(-n + 3) {
-    border-bottom: 0;
-  }
 }

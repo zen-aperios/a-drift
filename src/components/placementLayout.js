@@ -92,8 +92,11 @@ export function createPlacementLayout({ state, columns, rows, getPortalItemDocum
   function getPortalFrameForBlock(block, item = null, stretched = false, autoHeight = false) {
     const aspect = Math.max(0.1, item?.aspect || 1);
     const responsive = state.width <= TRACE_NARROW_LAYOUT_MAX;
-    const topAligned = autoHeight || state.width <= PORTAL_NARROW_LAYOUT_MAX;
-    const width = responsive
+    const mobile = state.width <= PORTAL_NARROW_LAYOUT_MAX;
+    const topAligned = autoHeight || mobile;
+    const width = mobile
+      ? Math.min(block.width, 450 * aspect)
+      : responsive
       ? block.width
       : stretched || autoHeight
       ? block.width

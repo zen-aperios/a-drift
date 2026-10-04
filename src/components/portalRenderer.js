@@ -1,4 +1,5 @@
 import { clamp } from "./traceMath.js";
+import { PORTAL_NARROW_LAYOUT_MAX } from "./traceConfig.js";
 
 // Owns portal image placement and media-layer output. Reveal targets and
 // Layout values are supplied by TraceDrift to preserve the current behavior.
@@ -52,7 +53,10 @@ export function createPortalRenderer({
         return;
       }
       const revealStartY = state.height * (state.portalRevealStart / 100);
-      const revealDistance = state.height * (state.portalRevealDistance / 100);
+      const defaultRevealDistance = state.height * (state.portalRevealDistance / 100);
+      const revealDistance = state.width <= PORTAL_NARROW_LAYOUT_MAX
+        ? Math.max(defaultRevealDistance, state.height * 0.9, 480)
+        : defaultRevealDistance;
       const enterProgress = clamp((revealStartY - rawScreenY) / Math.max(1, revealDistance), 0, 1);
       const revealTarget = rawScreenY < -item.height * 1.6 ? 0 : enterProgress;
       setPortalReveal(item, revealTarget);

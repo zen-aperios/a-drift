@@ -102,6 +102,12 @@ html.lenis body {
   padding: 0;
 }
 
+@media (max-width: 600px) {
+  .rhodes-audio-control {
+    margin-right: calc(2rem - 10px);
+  }
+}
+
 .rhodes-audio-button:hover {
   border-color: #ffffff;
 }
@@ -1784,7 +1790,7 @@ html.lenis body {
   }
 
   .site-footer__idea-directories {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 
@@ -1799,6 +1805,12 @@ html.lenis body {
   .site-footer__idea-links a {
     justify-content: flex-start;
     text-align: left;
+  }
+
+  .site-footer__idea-links:nth-child(2) .site-footer__idea-links-title,
+  .site-footer__idea-links:nth-child(2) a {
+    justify-content: flex-end;
+    text-align: right;
   }
 
 }

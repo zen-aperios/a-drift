@@ -9,7 +9,7 @@ function layout(width) {
 }
 
 test("responsive portal images fill their width and derive height from aspect ratio", () => {
-  for (const viewport of [320, 500, 501, 820]) {
+  for (const viewport of [501, 820]) {
     for (const aspect of [0.25, 0.75, 1, 2]) {
       const frame = layout(viewport).getPortalFrameForBlock(block, { aspect }, true);
       assert.equal(frame.width, block.width);
@@ -19,6 +19,19 @@ test("responsive portal images fill their width and derive height from aspect ra
       assert.equal(frame.y, viewport <= 500 ? block.y1 + frame.height / 2 : block.cy);
       assert.equal(frame.right - frame.left, frame.width);
       assert.equal(frame.bottom - frame.top, frame.height);
+    }
+  }
+});
+
+test("images at 500px and below cap height at 450px without stretching", () => {
+  for (const viewport of [320, 500]) {
+    for (const aspect of [0.25, 0.75, 1, 2]) {
+      const frame = layout(viewport).getPortalFrameForBlock(block, { aspect }, true);
+      assert.equal(frame.width, Math.min(block.width, 450 * aspect));
+      assert.equal(frame.height, frame.width / aspect);
+      assert.ok(frame.height <= 450);
+      assert.equal(frame.x, block.cx);
+      assert.equal(frame.top, block.y1);
     }
   }
 });

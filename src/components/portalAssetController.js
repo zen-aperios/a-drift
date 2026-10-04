@@ -68,6 +68,8 @@ export function createPortalAssetController({
       const mobileCells = mobile
         ? cells.filter((cell) => index === 0 ? cell.gapIndex === 0 : cell.gapIndex > 0)
         : [];
+      // Start the first mobile image in the lowest available block between A and P.
+      if (mobile && index === 0) mobileCells.reverse();
       const mobileBlock = mobile
         ? mobileCells.find((cell) => {
             const candidate = getPlacementBlock(cell, span);

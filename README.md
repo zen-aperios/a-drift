@@ -4,6 +4,12 @@ A Drift is an experimental audiovisual web composition built around traced lette
 scroll-driven motion, portal-like media reveals, generated typography, and a live
 multi-track sequencer.
 
+![A Drift](https://tympanus.net/codrops/wp-content/uploads/2026/10/adrift-0.18s.png)
+
+[Demo](https://tympanus.net/Demos/ADrift/)
+
+[Article on Codrops](https://tympanus.net/codrops/?p=123703)
+
 This repository is the canonical reference build prepared for review and Creative Hub
 integration. It is a self-contained static Vite application: there is no backend,
 database, authentication layer, or required environment configuration.

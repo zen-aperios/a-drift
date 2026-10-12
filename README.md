@@ -187,6 +187,10 @@ also serve the generated `dist/` directory.
 Website crafted by Robert Aperios for Aperios Design, with supplementary development
 assistance from OpenAI Codex. All visual and audio assets belong to Aperios Design.
 
+Original code and artwork © Robert Aperios / Aperios Design. All rights reserved.
+Third-party audio samples are used under license and remain the property of their
+respective owners.
+
 `public/robots.txt` asks identified AI training, AI search, and agent-retrieval crawlers
 not to access the deployed site while leaving conventional search indexing available.
 Robots directives are advisory and cannot prevent a non-compliant client from fetching

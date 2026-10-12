@@ -117,6 +117,7 @@ export function FooterLineField() {
           <nav className="site-footer__idea-links" aria-label="Other links">
             <span className="site-footer__idea-links-title">OTHER</span>
             <a href="https://tympanus.net/codrops/" target="_blank" rel="noreferrer">CODROPS</a>
+            <a href="https://tympanus.net/codrops/?p=123703" target="_blank" rel="noreferrer">TUTORIAL</a>
             <a href="https://gsap.com/" target="_blank" rel="noreferrer">GSAP</a>
           </nav>
           <nav className="site-footer__idea-links" aria-label="Social links">

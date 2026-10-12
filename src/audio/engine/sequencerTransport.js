@@ -7,8 +7,6 @@ export function createSequencerTransport({
   isSampleInstrument,
   loadSample,
   playStep,
-  playSample,
-  playKick,
   schedulePostStamp,
   notifyStep,
   setTimer = (callback, interval) => window.setInterval(callback, interval),
@@ -23,7 +21,6 @@ export function createSequencerTransport({
   let requestId = 0;
   let nextStepTime = 0;
   let step = 0;
-  let lastScrollPercussionTime = -Infinity;
 
   async function start() {
     if (running || startPromise || isDisposed()) return;
@@ -85,40 +82,13 @@ export function createSequencerTransport({
     nextStepTime = 0;
   }
 
-  function playScrollPercussion(scrollStep) {
-    const context = getContext();
-    if (!context || isDisposed()) return;
-    if (context.state !== "running") {
-      unlock().then(() => {
-        if (context.state === "running") playScrollPercussion(scrollStep);
-      });
-      return;
-    }
-
-    const time = context.currentTime + 0.01;
-    if (time - lastScrollPercussionTime < 0.32) return;
-    lastScrollPercussionTime = time;
-    playKick(context, time);
-    if (scrollStep % 2 === 1) {
-      const octavePattern = [0.5, 0.75, 1, 1.5, 2, 1.5, 1, 0.75];
-      const rate = octavePattern[Math.floor(scrollStep / 2) % octavePattern.length];
-      playSample("bongoHigh", {
-        time: time + 0.055,
-        rate,
-        gainLevel: 0.3,
-      });
-    }
-  }
-
   function dispose() {
     stop();
-    lastScrollPercussionTime = -Infinity;
   }
 
   return {
     start,
     stop,
-    playScrollPercussion,
     getStep: () => step,
     dispose,
   };

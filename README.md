@@ -85,9 +85,9 @@ git diff --check
 |-- src/
 |   |-- assets/
 |   |   |-- animation/       Hero and footer Lottie JSON
-|   |   |-- audio/           727, 808, Korg, percussion, and extra samples
+|   |   |-- audio/           Selected 727, 808, Korg, and percussion samples
 |   |   |-- brand/           Brand marks
-|   |   |-- images/portal/   Portal source images and production WebP files
+|   |   |-- images/portal/   Ten production WebP images
 |   |   |-- textures/        Fixed screen-noise texture
 |   |   `-- video/           Bottom composition video
 |   |-- audio/
@@ -145,16 +145,16 @@ These are the primary files to inspect before changing behavior:
 
 ## Assets
 
-All browser assets live under `src/assets` and are processed by Vite. Portal WebP files
-and the 727/808 sample libraries are discovered with `import.meta.glob`; moving or
-renaming those directories requires updating the glob paths.
+All browser assets live under `src/assets` and are processed by Vite. The ten portal
+images are listed in display order in `portalMedia.js`. The eight samples used by the
+composition are explicitly listed in `sampleRegistry.js`; unused sample libraries are
+not included. Moving or renaming these files requires updating their URL references.
 
 The larger footer Lottie animation and player are dynamically imported when the footer
 approaches the viewport. The video, audio, images, SVG, and texture are emitted with
 production-safe URLs during `npm run build`.
 
-PNG portal files are retained as source references. The runtime selects their WebP
-counterparts, so the PNG files are not shipped unless explicitly imported.
+Unused portal PNG originals and unselected WebP images have been removed.
 
 ## Browser Behavior
 

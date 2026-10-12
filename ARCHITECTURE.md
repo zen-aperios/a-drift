@@ -38,9 +38,9 @@ native controls or unstyled content appearing before the React loader.
 src/
   assets/
     animation/       Lottie JSON
-    audio/           727, 808, Korg, percussion, and extra samples
+    audio/           Selected 727, 808, Korg, and percussion samples
     brand/           logos
-    images/portal/   portal source images
+    images/portal/   ten production WebP images
     textures/        fixed noise texture
     video/           bottom composition video
   audio/
@@ -124,13 +124,13 @@ released by the effect cleanup path.
 
 ## Portal Rendering
 
-`portalMedia.js` provides the shared Three.js primitives and lazily addressable WebP
-asset map. `portalRenderer.js` draws the front and back media scenes, while
+`portalMedia.js` provides the shared Three.js primitives and an ordered WebP
+asset list. `portalRenderer.js` draws the front and back media scenes, while
 `placementLayout.js` resolves image frames against the placement grid.
 
-Portal images are selected from `src/assets/images/portal/*.webp` through Vite's
-`import.meta.glob`. PNG counterparts remain source references but are not included in
-the production bundle unless imported.
+The ten portal images are explicitly listed in `portalMedia.js` in composition order.
+Unused PNG originals and unselected WebP images have been removed, so directory
+contents no longer affect image selection.
 
 The portal shader combines each image with a generated canvas noise texture. Layout
 and uniform values are cached where possible to avoid repeating unchanged work per
@@ -158,7 +158,7 @@ sequencer. Internally it composes:
 
 - `effectsGraph.js` for per-track processing and reverb routing;
 - `samplePlayer.js` for decoded sample playback and previews;
-- `sampleRegistry.js` for typed sample URLs and library discovery;
+- `sampleRegistry.js` for explicit URLs for the eight composition samples;
 - `sequencerTransport.js` for timing, swing, scheduling, and cancellation;
 - `synthVoices.js` for bass, stamp, and synthesized voices;
 - `trackState.js` for track settings and subscriptions;

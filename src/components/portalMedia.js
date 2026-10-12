@@ -1,19 +1,21 @@
 import * as THREE from "three";
 
-const PORTAL_IMAGE_LOADERS = import.meta.glob("../assets/images/portal/*.webp", {
-  import: "default",
-  query: "?url",
-});
-
-export function pickPortalImageLoaders(limit = 10) {
-  const entries = Object.entries(PORTAL_IMAGE_LOADERS).sort(([a], [b]) => a.localeCompare(b));
-  const count = Math.min(limit, entries.length);
-  return Array.from({ length: count }, (_, index) => entries[(index * 5 + 3) % entries.length]);
-}
+// Explicit order preserves the composition when unused assets are removed.
+const PORTAL_IMAGE_URLS = [
+  new URL("../assets/images/portal/07 - showreel.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Guillotine preview.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Rylo icons.webp", import.meta.url).href,
+  new URL("../assets/images/portal/01 NCS.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Dawn.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Kurieo.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Social Reserv-1.webp", import.meta.url).href,
+  new URL("../assets/images/portal/06 - showreel.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Frame 2147259517.webp", import.meta.url).href,
+  new URL("../assets/images/portal/Rylo icons-1.webp", import.meta.url).href,
+];
 
 export async function loadPortalImageUrls(limit = 10) {
-  const entries = pickPortalImageLoaders(limit);
-  return Promise.all(entries.map(([, load]) => load()));
+  return PORTAL_IMAGE_URLS.slice(0, limit);
 }
 
 export function createMediaRenderer(mediaCanvas) {

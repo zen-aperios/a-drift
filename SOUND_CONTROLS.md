@@ -67,12 +67,16 @@ Useful future timing controls:
 
 ## Available Instrument Groups
 
-- Core: kick, hat, clap, bass, bongos, and other built-in sounds.
-- 727 samples.
-- 808 samples.
-- 909 samples when files are present.
-- Korg melodic and chord samples.
-- Synth chord and stamp sounds.
+Only sounds used by the composition are offered:
+
+- Synthesized kick, hat, and bass (no sample files).
+- Low bongo.
+- 727 low, muted high, and open high congas.
+- 808 low tom and rim shot.
+- Two Korg chords used by letter stamps and autoplay.
+
+The sample registry explicitly includes these eight WAV files. Extra libraries and
+unused chord samples are excluded from the source tree and build.
 
 ## Stamp / Auto-Play Sound
 

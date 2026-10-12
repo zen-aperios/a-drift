@@ -3,7 +3,7 @@ import {
 } from "../audio/patterns/bassPatterns.js";
 import { createDefaultSequencerPattern } from "../audio/patterns/defaultPattern.js";
 import { getVisibleSequencerLayers } from "../audio/patterns/patternVisibility.js";
-import { LIBRARY_SAMPLE_IDS, SAMPLE_URLS } from "../audio/engine/sampleRegistry.js";
+import { SAMPLE_URLS } from "../audio/engine/sampleRegistry.js";
 import { createTrackState } from "../audio/engine/trackState.js";
 import { createEffectsGraph } from "../audio/engine/effectsGraph.js";
 import { createSynthVoices, midiToFrequency } from "../audio/engine/synthVoices.js";
@@ -60,7 +60,7 @@ export const BASS_SOUND_STYLES = [
 ];
 
 const DEFAULT_SEQUENCER_PATTERN = createDefaultSequencerPattern();
-const PERCUSSION_INSTRUMENTS = new Set(["kick", "hat", "clap", "bongoLow", "bongoHigh"]);
+const PERCUSSION_INSTRUMENTS = new Set(["kick", "hat", "clap", "bongoLow"]);
 
 function isPercussionInstrument(instrument) {
   return PERCUSSION_INSTRUMENTS.has(instrument)
@@ -176,8 +176,6 @@ export function createRhodesChordEngine() {
     isSampleInstrument: (instrument) => Boolean(SAMPLE_URLS[instrument]),
     loadSample,
     playStep: playSequencerSound,
-    playSample,
-    playKick,
     schedulePostStamp,
     notifyStep: notifySequencer,
   });
@@ -480,7 +478,7 @@ export function createRhodesChordEngine() {
   }
 
   function getSequencerInstrumentOptions() {
-    return [...new Set(["kick", "hat", "bass", "clap", "bongoLow", "bongoHigh", ...Object.keys(SAMPLE_URLS)])];
+    return [...new Set(["kick", "hat", "bass", ...Object.keys(SAMPLE_URLS)])];
   }
 
   function setSequencerPattern(pattern) {
@@ -696,10 +694,6 @@ export function createRhodesChordEngine() {
     );
   }
 
-  function playScrollPercussion(step) {
-    transport.playScrollPercussion(step);
-  }
-
   function schedulePostStamp({ step, patternStep, patternLength, time }) {
     const halfPattern = Math.max(1, Math.floor(patternLength / 2));
     if (!postStampKeysEnabled
@@ -822,7 +816,6 @@ export function createRhodesChordEngine() {
     playStampChord,
     previewStampChord,
     playPercussion,
-    playScrollPercussion,
     playSound,
     previewSequencerInstrument,
     getSequencerPattern,
